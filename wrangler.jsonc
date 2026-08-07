@@ -14,7 +14,7 @@
 		{
 			"binding": "DB",
 			"database_name": "website-antrian-kelurahan-talun",
-			"database_id": "00000000-0000-0000-0000-000000000000",
+			"database_id": "a05682fb-1997-444f-9f07-d314882bc61d",
 			"migrations_dir": "./worker/migrations"
 		}
 	],

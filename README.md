@@ -3,7 +3,8 @@
 Aplikasi web pengambilan nomor antrian digital untuk Kantor Kelurahan Desa Talun.
 Dibangun sebagai proyek **Ujikom SMKN 1 Sumedang 2026**.
 
-- **Live:** [website-antrian-kelurahan-talun.vercel.app](https://website-antrian-kelurahan-talun.vercel.app)
+- **Live (Cloudflare):** [website-antrian-kelurahan-talun.mifdlaltsaqibalf25.workers.dev](https://website-antrian-kelurahan-talun.mifdlaltsaqibalf25.workers.dev)
+- **Live lama (Vercel):** [website-antrian-kelurahan-talun.vercel.app](https://website-antrian-kelurahan-talun.vercel.app)
 - **Repository:** [mifdlaldev/website-antrian-kelurahan-talun](https://github.com/mifdlaldev/website-antrian-kelurahan-talun)
 
 ---

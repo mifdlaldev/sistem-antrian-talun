@@ -53,8 +53,8 @@ exam) project for SMKN 1 Sumedang, 2026.
 - **Backend:** Cloudflare Workers (Hono) + **D1** (SQLite) + **Durable Objects**
   (realtime hub). All database access is server-side — the browser never talks to the DB.
 - **Deployment:** `wrangler deploy` — static assets (dist/) + API in one Worker.
-- **Live URL:** `https://website-antrian-kelurahan-talun.vercel.app` (URL lama;
-  URL Cloudflare baru menyusul setelah deploy).
+- **Live URL:** `https://website-antrian-kelurahan-talun.mifdlaltsaqibalf25.workers.dev`
+  (URL lama Vercel: `website-antrian-kelurahan-talun.vercel.app`).
 
 ---
 
