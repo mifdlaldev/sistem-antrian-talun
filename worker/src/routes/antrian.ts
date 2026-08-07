@@ -1,0 +1,278 @@
+import { Hono } from "hono";
+import * as v from "valibot";
+import { requireRoles, type SessionVariables } from "../auth";
+import type { Env } from "../env";
+import { todayIso } from "../queue";
+import { broadcast } from "../realtime";
+
+const AmbilBodySchema = v.object({
+	id_layanan: v.number(),
+});
+
+interface LayananRow {
+	id_layanan: number;
+	nama_layanan: string;
+	kode_huruf: string;
+}
+
+interface AntrianRow {
+	id_antrian: number;
+	nomor_antrian: string;
+	id_layanan: number;
+	id_user: number | null;
+	status: "menunggu" | "dilayani" | "selesai";
+	tanggal: string;
+	waktu_selesai: string | null;
+}
+
+interface UserRow {
+	id_user: number;
+	id_layanan: number | null;
+}
+
+interface DilayaniRow extends AntrianRow {
+	nama_layanan: string;
+	kode_huruf: string;
+	petugas_id: number | null;
+	petugas_nama: string | null;
+	petugas_username: string | null;
+}
+
+interface MenungguRow extends AntrianRow {
+	nama_layanan: string;
+	kode_huruf: string;
+}
+
+function shapeDilayani(row: DilayaniRow) {
+	return {
+		...row,
+		layanan: {
+			id_layanan: row.id_layanan,
+			nama_layanan: row.nama_layanan,
+			kode_huruf: row.kode_huruf,
+			deskripsi: null,
+		},
+		users:
+			row.petugas_id === null
+				? null
+				: {
+						id_user: row.petugas_id,
+						username: row.petugas_username,
+						nama_lengkap: row.petugas_nama,
+						role: "petugas",
+						id_layanan: null,
+					},
+	};
+}
+
+function shapeMenunggu(row: MenungguRow) {
+	return {
+		...row,
+		layanan: {
+			id_layanan: row.id_layanan,
+			nama_layanan: row.nama_layanan,
+			kode_huruf: row.kode_huruf,
+			deskripsi: null,
+		},
+	};
+}
+
+export const antrianRoutes = new Hono<{
+	Bindings: Env;
+	Variables: SessionVariables;
+}>();
+
+antrianRoutes.post("/", async (c) => {
+	const body = v.safeParse(
+		AmbilBodySchema,
+		await c.req.json().catch(() => null),
+	);
+	if (!body.success) return c.json({ error: "id_layanan wajib diisi" }, 400);
+
+	const today = todayIso();
+	const layanan = await c.env.DB.prepare(
+		"SELECT id_layanan, nama_layanan, kode_huruf FROM layanan WHERE id_layanan = ?",
+	)
+		.bind(body.output.id_layanan)
+		.first<LayananRow>();
+	if (!layanan) return c.json({ error: "Layanan tidak ditemukan" }, 404);
+
+	// Insert atomik dalam satu statement — nomor dihitung dari MAX antrian hari ini
+	// (perbaikan atas race condition count-then-insert versi Supabase).
+	const inserted = await c.env.DB.prepare(
+		`INSERT INTO antrian (nomor_antrian, id_layanan, status, tanggal)
+		 SELECT printf('%s-%03d', l.kode_huruf,
+			COALESCE(MAX(CAST(SUBSTR(a.nomor_antrian, 3) AS INTEGER)), 0) + 1),
+			l.id_layanan, 'menunggu', ?
+		 FROM layanan l
+		 LEFT JOIN antrian a ON a.id_layanan = l.id_layanan AND a.tanggal = ?
+		 WHERE l.id_layanan = ?
+		 GROUP BY l.id_layanan`,
+	)
+		.bind(today, today, body.output.id_layanan)
+		.run();
+
+	if (inserted.meta.changes === 0) {
+		return c.json({ error: "Gagal membuat antrian" }, 500);
+	}
+
+	const row = await c.env.DB.prepare(
+		"SELECT nomor_antrian FROM antrian WHERE id_layanan = ? AND tanggal = ? ORDER BY id_antrian DESC LIMIT 1",
+	)
+		.bind(body.output.id_layanan, today)
+		.first<{ nomor_antrian: string }>();
+	if (!row) return c.json({ error: "Gagal membuat antrian" }, 500);
+
+	await broadcast(c.env);
+	return c.json(
+		{ nomor_antrian: row.nomor_antrian, nama_layanan: layanan.nama_layanan },
+		201,
+	);
+});
+
+antrianRoutes.get("/display", async (c) => {
+	const today = todayIso();
+	const { results: dilayani } = await c.env.DB.prepare(
+		`SELECT a.*, l.nama_layanan, l.kode_huruf,
+			u.id_user AS petugas_id, u.nama_lengkap AS petugas_nama, u.username AS petugas_username
+		 FROM antrian a
+		 JOIN layanan l ON l.id_layanan = a.id_layanan
+		 LEFT JOIN users u ON u.id_user = a.id_user
+		 WHERE a.status = 'dilayani' AND a.tanggal = ?
+		 ORDER BY a.waktu_selesai DESC`,
+	)
+		.bind(today)
+		.all<DilayaniRow>();
+	const { results: menunggu } = await c.env.DB.prepare(
+		`SELECT a.*, l.nama_layanan, l.kode_huruf
+		 FROM antrian a
+		 JOIN layanan l ON l.id_layanan = a.id_layanan
+		 WHERE a.status = 'menunggu' AND a.tanggal = ?
+		 ORDER BY a.id_antrian ASC
+		 LIMIT 5`,
+	)
+		.bind(today)
+		.all<MenungguRow>();
+	return c.json({
+		dilayani: dilayani.map(shapeDilayani),
+		menunggu: menunggu.map(shapeMenunggu),
+	});
+});
+
+antrianRoutes.get("/petugas", requireRoles("petugas"), async (c) => {
+	const session = c.get("session");
+	if (!session) return c.json({ error: "Unauthorized" }, 401);
+	const today = todayIso();
+
+	const user = await c.env.DB.prepare(
+		"SELECT id_user, id_layanan FROM users WHERE id_user = ?",
+	)
+		.bind(session.id_user)
+		.first<UserRow>();
+	if (!user) return c.json({ error: "Unauthorized" }, 401);
+
+	const sedangDilayani = await c.env.DB.prepare(
+		`SELECT a.*, l.nama_layanan, l.kode_huruf
+		 FROM antrian a JOIN layanan l ON l.id_layanan = a.id_layanan
+		 WHERE a.status = 'dilayani' AND a.id_user = ? AND a.tanggal = ?`,
+	)
+		.bind(session.id_user, today)
+		.first<MenungguRow>();
+
+	let sisaAntrian: number;
+	if (user.id_layanan === null) {
+		const { results } = await c.env.DB.prepare(
+			"SELECT COUNT(*) AS cnt FROM antrian WHERE status = 'menunggu' AND tanggal = ?",
+		)
+			.bind(today)
+			.all<{ cnt: number }>();
+		sisaAntrian = results[0]?.cnt ?? 0;
+	} else {
+		const { results } = await c.env.DB.prepare(
+			"SELECT COUNT(*) AS cnt FROM antrian WHERE status = 'menunggu' AND tanggal = ? AND id_layanan = ?",
+		)
+			.bind(today, user.id_layanan)
+			.all<{ cnt: number }>();
+		sisaAntrian = results[0]?.cnt ?? 0;
+	}
+
+	const { results: selesaiRows } = await c.env.DB.prepare(
+		"SELECT COUNT(*) AS cnt FROM antrian WHERE status = 'selesai' AND id_user = ? AND tanggal = ?",
+	)
+		.bind(session.id_user, today)
+		.all<{ cnt: number }>();
+	const totalSelesai = selesaiRows[0]?.cnt ?? 0;
+
+	let namaLayananTugas = "SEMUA LAYANAN";
+	if (user.id_layanan !== null) {
+		const layanan = await c.env.DB.prepare(
+			"SELECT nama_layanan FROM layanan WHERE id_layanan = ?",
+		)
+			.bind(user.id_layanan)
+			.first<{ nama_layanan: string }>();
+		namaLayananTugas = layanan?.nama_layanan ?? "Spesialis";
+	}
+
+	return c.json({
+		sedangDilayani: sedangDilayani ? shapeMenunggu(sedangDilayani) : null,
+		sisaAntrian,
+		totalSelesai,
+		namaLayananTugas,
+	});
+});
+
+antrianRoutes.post("/next", requireRoles("petugas"), async (c) => {
+	const session = c.get("session");
+	if (!session) return c.json({ error: "Unauthorized" }, 401);
+	const today = todayIso();
+
+	const user = await c.env.DB.prepare(
+		"SELECT id_user, id_layanan FROM users WHERE id_user = ?",
+	)
+		.bind(session.id_user)
+		.first<UserRow>();
+	if (!user) return c.json({ error: "Unauthorized" }, 401);
+
+	const sedangDilayani = await c.env.DB.prepare(
+		"SELECT * FROM antrian WHERE status = 'dilayani' AND id_user = ? AND tanggal = ?",
+	)
+		.bind(session.id_user, today)
+		.first<AntrianRow>();
+	if (sedangDilayani) {
+		await c.env.DB.prepare(
+			"UPDATE antrian SET status = 'selesai', waktu_selesai = ? WHERE id_antrian = ?",
+		)
+			.bind(new Date().toISOString(), sedangDilayani.id_antrian)
+			.run();
+	}
+
+	const nextQueue =
+		user.id_layanan === null
+			? await c.env.DB.prepare(
+					`SELECT a.*, l.nama_layanan, l.kode_huruf
+					 FROM antrian a JOIN layanan l ON l.id_layanan = a.id_layanan
+					 WHERE a.status = 'menunggu' AND a.tanggal = ?
+					 ORDER BY a.id_antrian ASC LIMIT 1`,
+				)
+					.bind(today)
+					.first<MenungguRow>()
+			: await c.env.DB.prepare(
+					`SELECT a.*, l.nama_layanan, l.kode_huruf
+					 FROM antrian a JOIN layanan l ON l.id_layanan = a.id_layanan
+					 WHERE a.status = 'menunggu' AND a.tanggal = ? AND a.id_layanan = ?
+					 ORDER BY a.id_antrian ASC LIMIT 1`,
+				)
+					.bind(today, user.id_layanan)
+					.first<MenungguRow>();
+
+	if (nextQueue) {
+		await c.env.DB.prepare(
+			"UPDATE antrian SET status = 'dilayani', id_user = ? WHERE id_antrian = ?",
+		)
+			.bind(session.id_user, nextQueue.id_antrian)
+			.run();
+		await broadcast(c.env);
+		return c.json({ next: shapeMenunggu(nextQueue) });
+	}
+	return c.json({ next: null });
+});

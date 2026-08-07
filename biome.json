@@ -6,7 +6,13 @@
 		"useIgnoreFile": true
 	},
 	"files": {
-		"includes": ["**", "!!**/dist", "!!**/*.svelte", "!!**/*.css"]
+		"includes": [
+			"**",
+			"!!**/dist",
+			"!!**/*.svelte",
+			"!!**/*.css",
+			"!!worker-configuration.d.ts"
+		]
 	},
 	"formatter": {
 		"enabled": true,

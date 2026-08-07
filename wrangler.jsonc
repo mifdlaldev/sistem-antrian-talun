@@ -1,0 +1,28 @@
+{
+	"$schema": "./node_modules/wrangler/config-schema.json",
+	"name": "website-antrian-kelurahan-talun",
+	"main": "./worker/src/index.ts",
+	"compatibility_date": "2026-07-01",
+	"compatibility_flags": ["nodejs_compat"],
+	"assets": {
+		"directory": "./dist",
+		"binding": "ASSETS",
+		"run_worker_first": true,
+		"not_found_handling": "single-page-application"
+	},
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "website-antrian-kelurahan-talun",
+			"database_id": "00000000-0000-0000-0000-000000000000",
+			"migrations_dir": "./worker/migrations"
+		}
+	],
+	"durable_objects": {
+		"bindings": [{ "name": "REALTIME", "class_name": "RealtimeHub" }]
+	},
+	"migrations": [{ "tag": "v1", "new_sqlite_classes": ["RealtimeHub"] }],
+	"observability": {
+		"enabled": true
+	}
+}

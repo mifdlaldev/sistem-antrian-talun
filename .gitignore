@@ -29,3 +29,7 @@ env
 # Local tooling
 .omo/
 .codegraph/
+.dev.vars
+
+# Cloudflare local state
+.wrangler/
