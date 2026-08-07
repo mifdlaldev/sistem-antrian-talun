@@ -1,251 +1,173 @@
-# Sistem Antrian Digital Kelurahan Desa Talun
+<p align="center">
+  <img src="public/logoinsunmedal.png" alt="Logo Kelurahan Talun" width="110" />
+</p>
 
-Aplikasi web pengambilan nomor antrian digital untuk Kantor Kelurahan Desa Talun.
-Dibangun sebagai proyek **Ujikom SMKN 1 Sumedang 2026**.
+<h1 align="center">Sistem Antrian Digital Kelurahan Talun</h1>
 
-- **Live (Cloudflare):** [website-antrian-kelurahan-talun.mifdlaltsaqibalf25.workers.dev](https://website-antrian-kelurahan-talun.mifdlaltsaqibalf25.workers.dev)
-- **Live lama (Vercel):** [website-antrian-kelurahan-talun.vercel.app](https://website-antrian-kelurahan-talun.vercel.app)
-- **Repository:** [mifdlaldev/website-antrian-kelurahan-talun](https://github.com/mifdlaldev/website-antrian-kelurahan-talun)
+<p align="center">
+  <a href="https://github.com/mifdlaldev/website-antrian-kelurahan-talun/blob/main/LICENSE"><img src="https://img.shields.io/github/license/mifdlaldev/website-antrian-kelurahan-talun" alt="License" /></a>
+  <img src="https://img.shields.io/badge/Svelte-5-FF3E00" alt="Svelte 5" />
+  <img src="https://img.shields.io/badge/Cloudflare-Workers-F38020" alt="Cloudflare Workers" />
+  <img src="https://img.shields.io/badge/Database-D1-F38020" alt="Cloudflare D1" />
+  <img src="https://img.shields.io/badge/TypeScript-Strict-3178C6" alt="TypeScript" />
+</p>
 
----
+<p align="center">
+  <em>Aplikasi pengambilan nomor antrian digital untuk pelayanan publik di <strong>Kantor Kelurahan Talun, Kecamatan Sumedang Utara, Kabupaten Sumedang, Jawa Barat</strong>.</em>
+</p>
+
+## Tentang
+
+Sistem Antrian Digital menggantikan pengambilan antrian manual (kertas) yang rentan
+salah urut dan menyulitkan pemantauan. Melalui aplikasi ini, warga mengambil nomor
+antrian sendiri dari **kiosk layar sentuh**, petugas memanggil nomor dari panel loket,
+dan nomor yang sedang dilayani tampil **real-time** di monitor ruang tunggu.
+
+Arsitektur dirancang ringan dan aman: SPA Svelte 5 + API Hono yang berjalan dalam satu
+[Cloudflare Worker](https://workers.cloudflare.com) dengan database [D1](https://developers.cloudflare.com/d1/)
+(SQLite) dan real-time via **Durable Objects**. Semua akses database hanya terjadi di
+sisi server.
+
+> **Status**: Berjalan di Cloudflare Workers. URL live:
+> [website-antrian-kelurahan-talun.mifdlaltsaqibalf25.workers.dev](https://website-antrian-kelurahan-talun.mifdlaltsaqibalf25.workers.dev)
 
 ## Fitur
 
-- **Kiosk Antrian** (`/`) — warga memilih layanan dan mengambil nomor antrian otomatis
-  (format `A-001`, `B-002`, dst.)
-- **Monitor Display TV** (`/monitor`) — layar ruang tunggu realtime: menampilkan nomor
-  yang sedang dilayani, 5 antrian berikutnya, jam digital, dan running text, tanpa perlu
-  refresh manual
-- **Login Petugas/Admin** (`/login`) — masuk ke panel berdasarkan username & password
-- **Dashboard Petugas** (`/petugas/dashboard`) — memanggil antrian berikutnya (FIFO),
-  menyelesaikan antrian aktif, dengan filter layanan untuk petugas spesialis
-- **Dashboard Admin** (`/admin/dashboard`) — statistik harian & tren 7 hari, grafik
-  antrian per layanan, kelola layanan (CRUD), kelola akun petugas (CRUD)
-- **Realtime** — semua perubahan antrian langsung ter-update di Monitor & dashboard
-  petugas via Supabase Realtime (Postgres Changes)
+### Halaman Publik (Warga)
+- **Kiosk** (`/`) — pilih layanan dan ambil nomor antrian otomatis (format `A-001`)
+  dalam ≤3 langkah, target sentuh besar, ramah pengguna lansia
+- **Monitor Display** (`/monitor`) — papan antrian real-time: nomor dilayani, 5 antrian
+  berikutnya, jam digital, running text; update instan tanpa refresh manual
+- Responsif di ponsel, tablet, hingga layar TV
+
+### Dashboard Admin
+- Login dengan sesi aman (cookie `HttpOnly`, password ter-hash)
+- Statistik harian + tren 7 hari + distribusi antrian per layanan (grafik SVG ringan)
+- Kelola layanan (tambah, ubah, hapus)
+- Kelola akun petugas (tambah, ubah, hapus, penugasan layanan)
+
+### Dashboard Petugas
+- Panel panggilan antrian satu tombol (FIFO)
+- Filter otomatis per layanan untuk petugas spesialis
+- Rekap sisa antrian dan total selesai hari ini
+
+## Keamanan
+
+- **Semua akses database lewat API Worker** — browser tidak pernah memegang kredensial
+  database.
+- Password di-hash dengan **PBKDF2-SHA256** (salt acak per akun), tidak pernah disimpan
+  mentah.
+- Sesi login menggunakan **cookie `HttpOnly` + `SameSite=Lax` + `Secure`** — tidak bisa
+  dibaca/diubah JavaScript (bukan localStorage).
+- **Validasi input di sisi server** dengan [Valibot](https://valibot.dev) — klien tidak
+  pernah dipercaya.
+- SQL berparameter (prepared statements) — tahan injeksi.
+- Nomor antrian dibuat dengan **insert atomik satu statement** — bebas duplikasi saat
+  kiosk digunakan bersamaan.
 
 ## Teknologi
 
-| Teknologi | Keterangan |
-|---|---|
-| Svelte 5 | UI framework (runes) — runtime ~1.6 KB |
-| Vite 8 | Build tool & dev server |
-| TypeScript | Strict mode + `noUncheckedIndexedAccess` |
-| Tailwind CSS v4 | Styling (konfigurasi CSS-first via `@theme`) |
-| shadcn-svelte | Komponen UI (dibangun di atas bits-ui / Melt UI) |
-| Cloudflare Workers | Runtime API (Hono) + static assets, satu Worker |
-| Hono | Framework API di Worker (routing, middleware) |
-| D1 (SQLite) | Database — diakses hanya server-side via binding |
-| Durable Objects | Realtime hub (WebSocket pub/sub) |
-| Valibot | Validasi runtime + inferensi skema (client + worker) |
-| Biome | Lint + format (Rust, sangat cepat) |
-| Vitest | Unit tests |
-| svelte-sonner | Toast notification |
-| @lucide/svelte | Icon |
-| Husky + lint-staged | Pre-commit hooks |
-
-## Persyaratan
-
-- Node.js (npm) — versi yang mendukung Vite 8
-- Akun Cloudflare (untuk deploy; dev lokal tanpa akun)
-
-## Cara Menjalankan
-
-```bash
-npm install            # install dependencies
-npm run dev            # frontend saja (Vite dev server)
-npm run dev:worker     # full stack: Worker + D1 + DO + assets (wrangler dev --local)
-npm run db:migrate:local  # apply migrasi D1 ke database lokal
-npm run build          # build produksi frontend (output: dist/)
-npm run check          # type-check (svelte-check + tsc app + tsc worker)
-npm test               # jalankan unit test (Vitest)
-npm run lint           # biome check
-npm run lint:fix       # biome check --write
-npm run format         # biome format --write
-```
-
-## Quality Gates
-
-Proyek ini menerapkan standar ketat ("sangat ringan, sangat ketat, sangat cepat"):
-
-- **Type-check:** `svelte-check` (TS strict) + `tsc -p tsconfig.worker.json` — 0 error,
-  0 warning.
-- **Lint + format:** Biome (untuk `.ts/.js/.json`; `.svelte`/`.css` ditangani
-  svelte-check/Tailwind).
-- **Test:** Vitest untuk logika murni (`worker/src/queue.test.ts`, `src/lib/schemas.ts`).
-- **Pre-commit:** Husky + lint-staged menjalankan `biome check --write` otomatis.
-- **Bundle:** ~274 KB min / ~83 KB gzip JS.
-- **Keamanan:** DB hanya diakses Worker, session cookie httpOnly HMAC-signed, password
-  PBKDF2 (bukan plaintext).
-
-## Konfigurasi Environment
-
-Lokal: buat file `.dev.vars` di root (gitignored, sudah ada):
-
-```
-SESSION_SECRET=secret_acak_yang_panjang
-```
-
-Produksi: set sebagai secret Cloudflare:
-
-```bash
-npx wrangler secret put SESSION_SECRET
-```
-
-Tidak ada variabel `VITE_*` — frontend berkomunikasi dengan API same-origin (`/api/*`).
-
-## Skema Database
-
-> **Catatan:** tidak ada file migrasi SQL di repository ini. Skema di bawah ini
-> disimpulkan (inferred) dari query Supabase di dalam source code. Untuk skema
-> otoritatif, cek langsung di dashboard Supabase.
-
-### Tabel `layanan`
-
-| Kolom | Keterangan |
-|---|---|
-| `id_layanan` | PK, int |
-| `nama_layanan` | text (misal: "Layanan KTP & KK") |
-| `kode_huruf` | text, huruf tunggal (misal: "A") — prefix nomor antrian |
-| `deskripsi` | text, opsional |
-
-### Tabel `antrian`
-
-| Kolom | Keterangan |
-|---|---|
-| `id_antrian` | PK, int (urutan FIFO) |
-| `nomor_antrian` | text, format `KODE-001` |
-| `id_layanan` | FK → `layanan.id_layanan` |
-| `id_user` | FK → `users.id_user`, diisi petugas yang melayani |
-| `status` | text: `menunggu` / `dilayani` / `selesai` |
-| `tanggal` | date (`YYYY-MM-DD`) |
-| `waktu_selesai` | timestamp, diisi saat status → `selesai` |
-
-### Tabel `users`
-
-| Kolom | Keterangan |
-|---|---|
-| `id_user` | PK, int |
-| `username` | text, UNIQUE |
-| `password_hash` | text — **PBKDF2-SHA256, bukan plaintext** |
-| `nama_lengkap` | text |
-| `role` | text: `admin` / `petugas` |
-| `id_layanan` | FK → `layanan.id_layanan`, nullable; `null` = petugas umum (semua layanan) |
-
-> Skema otoritatif ada di `worker/migrations/0001_init.sql` + `0002_seed.sql`.
-> Seed: `admin`/`admin123`, `petugas1`/`petugas123` — **WAJIB diganti sebelum produksi**.
-
-## Routing
-
-| Path | Halaman |
-|---|---|
-| `/` | Kiosk (ambil antrian) — publik |
-| `/monitor` | Monitor display TV — publik |
-| `/login` | Login — publik |
-| `/admin/dashboard` | Dashboard admin (role: `admin`) |
-| `/petugas/dashboard` | Dashboard petugas (role: `petugas`) |
-| `/dashboard` | Redirect ke `/login` |
-| `*` | 404 |
+| Layer | Teknologi |
+|-------|-----------|
+| Frontend | [Svelte](https://svelte.dev) 5 (runes), [Vite](https://vite.dev) 8, TypeScript strict |
+| Styling | [Tailwind CSS](https://tailwindcss.com) 4, [shadcn-svelte](https://shadcn-svelte.com) (bits-ui) |
+| Routing | Custom SPA router (zero-dependency) |
+| API | [Hono](https://hono.dev) di [Cloudflare Workers](https://workers.cloudflare.com) |
+| Database | [Cloudflare D1](https://developers.cloudflare.com/d1/) (SQLite) |
+| Realtime | [Durable Objects](https://developers.cloudflare.com/durable-objects/) (WebSocket hub) |
+| Validasi | [Valibot](https://valibot.dev) (client + server) |
+| Kualitas | Biome (lint/format), Vitest (unit test), Husky + lint-staged |
 
 ## Struktur Proyek
 
 ```
-├── openspec/            # Spesifikasi resmi proyek (dibaca AI agent agar tidak halusinasi)
-│   ├── project.md       # Gambaran proyek, scope, constraints
-│   └── spec/
-│       ├── capabilities/   # queue-taking, queue-monitoring, queue-calling, authentication, admin-management
-│       └── contracts/      # database-schema, session
-├── worker/              # Cloudflare Worker (Hono + D1 + DO realtime)
-│   ├── migrations/      #   Skema D1 (0001_init, 0002_seed)
-│   └── src/             #   index.ts, auth.ts, realtime.ts, routes/
-├── public/
-│   ├── logoinsunmedal.png
-│   └── kantorlurahtalun.jpg
-└── src/
-    ├── main.ts              # Entry point
-    ├── App.svelte           # SPA router custom + guard role + Toaster
-    ├── app.css              # Tailwind v4 + tokens tema shadcn
-    ├── lib/
-    │   ├── api.ts               # Fetch wrapper (GET/POST/PUT/DELETE)
-    │   ├── realtime.ts          # subscribeAntrian() — WebSocket + auto-reconnect
-    │   ├── schemas.ts           # Skema Valibot (layanan, antrian, users)
-    │   ├── session.ts           # getCurrentUser/login/logout (cookie httpOnly)
-    │   ├── router.ts            # navigate() (pushState + popstate)
-    │   ├── components/
-    │   │   ├── BarChart.svelte  # Chart SVG zero-dependency
-    │   │   └── ui/              # Komponen shadcn-svelte (button, card, dialog, dll)
-    │   └── routes/
-    │       ├── Kiosk.svelte
-    │       ├── Monitor.svelte
-    │       ├── Login.svelte
-    │       ├── AdminDashboard.svelte
-    │       └── PetugasDashboard.svelte
+├── src/                      # Frontend Svelte 5 + TypeScript
+│   ├── App.svelte            # Router SPA + guard role + Toaster
+│   ├── lib/
+│   │   ├── api.ts            # Klien API (fetch ke /api)
+│   │   ├── realtime.ts       # subscribeAntrian() — WebSocket + auto-reconnect
+│   │   ├── schemas.ts        # Skema Valibot bersama
+│   │   ├── session.ts        # getCurrentUser/login/logout (cookie httpOnly)
+│   │   ├── components/       # BarChart SVG + komponen UI (shadcn-svelte)
+│   │   └── routes/           # Kiosk, Monitor, Login, AdminDashboard, PetugasDashboard
+├── worker/                   # Cloudflare Worker (API)
+│   ├── src/
+│   │   ├── index.ts          # Entry Hono + SPA fallback
+│   │   ├── auth.ts           # PBKDF2, sesi cookie HMAC, middleware role
+│   │   ├── realtime.ts       # Durable Object hub (WebSocket + broadcast)
+│   │   ├── queue.ts          # todayIso(), buildNomorAntrian()
+│   │   └── routes/           # auth, layanan, antrian, users, stats
+│   └── migrations/           # Skema SQL D1 (0001_init, 0002_seed)
+├── docs/
+│   └── API.md                # Dokumentasi endpoint API
+├── openspec/                 # Spesifikasi sistem (capabilities + contracts)
+└── wrangler.jsonc            # Konfigurasi Worker (D1 + DO + static assets)
 ```
 
-## Dokumentasi Spesifikasi (OpenSpec)
+Dokumentasi lengkap endpoint API: [docs/API.md](docs/API.md).
 
-Direktori [`openspec/`](openspec/) berisi spesifikasi resmi sistem yang sedang berjalan
-saat ini — ditulis agar AI agent (dan manusia) tidak berhalusinasi:
+## Persyaratan
 
-- `openspec/project.md` — gambaran proyek, scope, constraints, konvensi
-- `openspec/spec/capabilities/` — kemampuan sistem: pengambilan antrian, monitoring,
-  pemanggilan, autentikasi, manajemen admin
-- `openspec/spec/contracts/` — kontrak data: skema database (inferred) dan session
+- Node.js 20+ dan npm
+- Akun [Cloudflare](https://dash.cloudflare.com) dengan hak akses Workers + D1
+  (untuk deploy; pengembangan lokal tidak membutuhkan akun)
 
-Setiap fakta di sana terverifikasi dari source code. Skema database bersumber dari
-migrasi D1 (`worker/migrations/`).
-
-## Deployment (Cloudflare Workers)
-
-Frontend (dist/) dan API (Worker) di-deploy menjadi **satu Worker** via `wrangler deploy`
-— config ada di `wrangler.jsonc` (D1 + Durable Objects + static assets).
-
-Langkah deploy pertama (butuh akun Cloudflare):
+## Instalasi Lokal
 
 ```bash
-npx wrangler login                          # login ke akun Cloudflare
-npx wrangler d1 create website-antrian-kelurahan-talun   # buat database D1
-# salin database_id hasil di atas ke wrangler.jsonc (ganti placeholder all-zero)
-npx wrangler secret put SESSION_SECRET      # secret untuk menandatangani cookie
-npx wrangler d1 migrations apply website-antrian-kelurahan-talun --remote  # migrasi + seed
-npm run deploy                              # build frontend + wrangler deploy
+# 1. Clone repositori
+git clone https://github.com/mifdlaldev/website-antrian-kelurahan-talun.git
+cd website-antrian-kelurahan-talun
+
+# 2. Install dependensi
+npm install
+
+# 3. Secret lokal (buat file .dev.vars di root — jangan di-commit)
+#    SESSION_SECRET=secret_acak_yang_panjang
+
+# 4. Terapkan migrasi database ke D1 lokal
+npm run db:migrate:local
+
+# 5. Jalankan full stack (Worker + D1 + DO + static assets)
+npm run dev:worker
+# Buka http://localhost:8787
 ```
 
-Setelah deploy: ganti password default seed (`admin`/`admin123`,
-`petugas1`/`petugas123`) via dashboard admin, dan set custom domain jika perlu.
+Akun default hasil seed: `admin` / `admin123` (admin) dan `petugas1` / `petugas123`
+(petugas). **Ganti segera sebelum digunakan secara publik.**
 
-## Status & Batasan yang Diketahui
+## Deployment
 
-- **Belum ada CI/CD configuration** di repository (kualitas dicek via script lokal:
-  `npm run check`, `npm test`, `npm run lint`).
-- **Belum di-deploy ke Cloudflare** — butuh `wrangler login` + langkah deploy di atas.
-- **Realtime** (Durable Object WebSocket) teruji lokal (`wrangler dev`), belum teruji di
-  edge.
-- **Print struk belum berfungsi** — Kiosk menampilkan "Sedang mencetak struk..." namun
-  tidak ada implementasi pencetakan nyata.
-- **Komponen UI belum diuji** — test Vitest hanya mencakup logika murni
-  (`worker/src/queue.test.ts`, `src/lib/schemas.ts`).
-- **Seed credentials default** — wajib diganti sebelum produksi.
-- **`tanggal` pakai UTC ISO** — bisa beda hari dengan WIB sekitar tengah malam.
+```bash
+# 1. Login Cloudflare (buka browser, klik Allow)
+npx wrangler login
 
-## Catatan Keamanan
+# 2. Buat database D1, lalu isi database_id hasilnya ke wrangler.jsonc
+npx wrangler d1 create website-antrian-kelurahan-talun
 
-Migrasi dari Supabase ke Cloudflare **memperbaiki kerentanan lama**:
+# 3. Set secret session
+npx wrangler secret put SESSION_SECRET
 
-| Kerentanan lama (Supabase) | Status sekarang |
-|---|---|
-| Password plaintext + dicek di browser | ✅ PBKDF2-SHA256 server-side (Worker) |
-| Session localStorage forgeable | ✅ Cookie httpOnly + HMAC-signed |
-| Monitor publik bocorkan `users.password` | ✅ Server-side projection, password tak pernah dikirim |
-| Anon key publik + akses DB dari browser | ✅ DB hanya diakses Worker (binding D1) |
-| Stored XSS (SweetAlert `html:`) | ✅ Svelte escape otomatis |
+# 4. Terapkan migrasi ke database remote
+npm run db:migrate:remote
 
-Yang tetap perlu diperhatikan: default credentials seed, kekuatan/rotasi
-`SESSION_SECRET`, batas free tier (D1 5 GB, DO 1M request/bulan, Workers 100K
-request/hari). Jangan menurunkan level keamanan ini tanpa persetujuan.
+# 5. Build frontend + deploy Worker (static assets + API dalam satu Worker)
+npm run deploy
+```
+
+## Kualitas
+
+```bash
+npm run check   # svelte-check (0 error/0 warning) + tsc (app + worker)
+npm test        # unit test (Vitest)
+npm run lint    # biome check
+```
+
+Bundle produksi: ~277 KB min / ~84 KB gzip (tanpa React, tanpa recharts, tanpa
+SweetAlert).
 
 ## Lisensi
 
-Proyek ini dilisensikan di bawah **Apache License 2.0** — lihat file [LICENSE](LICENSE).
+Dilisensikan di bawah [Apache License 2.0](LICENSE).
 
-© 2026 — Proyek Ujikom SMKN 1 Sumedang.
+© 2026 Kantor Kelurahan Desa Talun.
