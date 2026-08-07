@@ -116,6 +116,11 @@ Kedua variabel dibaca di `src/lib/supabaseClient.js`.
 ## Struktur Proyek
 
 ```
+├── openspec/            # Spesifikasi resmi proyek (dibaca AI agent agar tidak halusinasi)
+│   ├── project.md       # Gambaran proyek, scope, constraints
+│   └── spec/
+│       ├── capabilities/   # queue-taking, queue-monitoring, queue-calling, authentication, admin-management
+│       └── contracts/      # database-schema, session
 ├── public/
 │   ├── logoinsunmedal.png
 │   └── kantorlurahtalun.jpg
@@ -134,6 +139,19 @@ Kedua variabel dibaca di `src/lib/supabaseClient.js`.
         ├── public/   # Kiosk, Monitor, Login
         └── admin/    # AdminDashboard, PetugasDashboard
 ```
+
+## Dokumentasi Spesifikasi (OpenSpec)
+
+Direktori [`openspec/`](openspec/) berisi spesifikasi resmi sistem yang sedang berjalan
+saat ini — ditulis agar AI agent (dan manusia) tidak berhalusinasi:
+
+- `openspec/project.md` — gambaran proyek, scope, constraints, konvensi
+- `openspec/spec/capabilities/` — kemampuan sistem: pengambilan antrian, monitoring,
+  pemanggilan, autentikasi, manajemen admin
+- `openspec/spec/contracts/` — kontrak data: skema database (inferred) dan session
+
+Setiap fakta di sana terverifikasi dari source code. Skema database ditandai **inferred**
+karena tidak ada migrasi SQL di repo ini.
 
 ## Deployment (Vercel)
 

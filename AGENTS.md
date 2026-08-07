@@ -38,6 +38,10 @@ here conflicts with code you read, the code wins — update this file, never the
 8. **Keep this file accurate.** When you make structural changes (new routes, renamed
    columns, removed dependencies), update AGENTS.md and README.md in the same change.
 
+9. **Read `openspec/` before changing behavior.** The OpenSpec directory is the
+   authoritative specification of the current system (capabilities + contracts). When
+   `openspec/` conflicts with code you read, the code wins — update both.
+
 ---
 
 ## Project Overview
@@ -99,6 +103,11 @@ Node/package manager: npm. No test runner is configured.
 ├── LICENSE                    # Apache License 2.0
 ├── AGENTS.md                  # This file — agent guidelines (no hallucination)
 ├── README.md                  # Project documentation (Indonesian)
+├── openspec/                  # OpenSpec specs — authoritative description of current behavior
+│   ├── project.md             # Project overview, scope, constraints, conventions
+│   └── spec/
+│       ├── capabilities/      # queue-taking, queue-monitoring, queue-calling, authentication, admin-management
+│       └── contracts/         # database-schema, session
 ├── public/
 │   ├── logoinsunmedal.png     # Logo (used in navbar/header)
 │   ├── kantorlurahtalun.jpg   # Office photo (Monitor display background)
