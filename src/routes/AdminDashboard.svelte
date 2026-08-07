@@ -92,14 +92,7 @@
 		layananStats: LayananStat[];
 	};
 
-	const COLORS = [
-		'#10b981',
-		'#f97316',
-		'#3b82f6',
-		'#8b5cf6',
-		'#ec4899',
-		'#06b6d4',
-	];
+	const COLORS = ['#1e3a8a', '#d4a017', '#64748b', '#3b82f6', '#a8a29e'];
 
 	let activeTab = $state<'home' | 'layanan' | 'users'>('home');
 	let isSidebarOpen = $state(false);
@@ -320,58 +313,58 @@
 		{
 			label: 'Total Antrian Hari Ini',
 			value: stats.total,
-			color: 'text-slate-800',
+			color: 'text-navy',
 		},
-		{ label: 'Menunggu', value: stats.waiting, color: 'text-orange-500' },
-		{ label: 'Selesai', value: stats.completed, color: 'text-emerald-600' },
+		{ label: 'Menunggu', value: stats.waiting, color: 'text-gold-deep' },
+		{ label: 'Selesai', value: stats.completed, color: 'text-green-600' },
 	]);
 </script>
 
-<div class="flex h-screen bg-slate-100 text-slate-800">
+<div class="flex h-screen bg-muted/50 text-foreground">
 	<aside
-		class="fixed inset-y-0 left-0 z-20 flex w-64 flex-col bg-slate-900 text-white shadow-2xl transition-transform duration-300 lg:relative lg:translate-x-0 {isSidebarOpen
+		class="fixed inset-y-0 left-0 z-20 flex w-64 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground shadow-2xl transition-transform duration-300 lg:relative lg:translate-x-0 {isSidebarOpen
 			? 'translate-x-0'
 			: '-translate-x-full'}"
 	>
-		<div class="flex items-center gap-3 border-b border-slate-700 bg-slate-950 p-6">
-			<img src="/logoinsunmedal.png" alt="Logo" class="h-10 w-10 object-contain" />
+		<div class="flex items-center gap-3 border-b border-sidebar-border bg-navy-deep p-5">
+			<img src="/logoinsunmedal.png" alt="Logo" class="h-10 w-10 rounded object-contain" />
 			<div>
-				<h1 class="text-lg font-bold">Admin Panel</h1>
-				<p class="text-xs text-slate-400">Desa Talun</p>
+				<h1 class="font-display text-lg font-bold tracking-tight">Admin Panel</h1>
+				<p class="text-xs text-sidebar-foreground/60">Desa Talun</p>
 			</div>
 		</div>
-		<nav class="flex-1 space-y-2 p-4">
+		<nav class="flex-1 space-y-1.5 p-4">
 			<button
-				class="flex w-full items-center gap-3 rounded-xl px-4 py-3 transition-all {activeTab === 'home'
-					? 'bg-emerald-600 text-white'
-					: 'text-slate-400 hover:bg-slate-800'}"
+				class="flex w-full items-center gap-3 rounded-lg px-4 py-3 font-display text-sm font-medium transition-all {activeTab === 'home'
+					? 'bg-gold font-semibold text-navy shadow'
+					: 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-white'}"
 				onclick={() => openTab('home')}
 			>
 				<LayoutDashboard class="size-5" />
 				Dashboard
 			</button>
 			<button
-				class="flex w-full items-center gap-3 rounded-xl px-4 py-3 transition-all {activeTab === 'layanan'
-					? 'bg-emerald-600 text-white'
-					: 'text-slate-400 hover:bg-slate-800'}"
+				class="flex w-full items-center gap-3 rounded-lg px-4 py-3 font-display text-sm font-medium transition-all {activeTab === 'layanan'
+					? 'bg-gold font-semibold text-navy shadow'
+					: 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-white'}"
 				onclick={() => openTab('layanan')}
 			>
 				<Layers class="size-5" />
 				Kelola Layanan
 			</button>
 			<button
-				class="flex w-full items-center gap-3 rounded-xl px-4 py-3 transition-all {activeTab === 'users'
-					? 'bg-emerald-600 text-white'
-					: 'text-slate-400 hover:bg-slate-800'}"
+				class="flex w-full items-center gap-3 rounded-lg px-4 py-3 font-display text-sm font-medium transition-all {activeTab === 'users'
+					? 'bg-gold font-semibold text-navy shadow'
+					: 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-white'}"
 				onclick={() => openTab('users')}
 			>
 				<Users class="size-5" />
 				Kelola Petugas
 			</button>
 		</nav>
-		<div class="border-t border-slate-800 bg-slate-950 p-4">
+		<div class="border-t border-sidebar-border bg-navy-deep p-4">
 			<button
-				class="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-red-400 transition-all hover:bg-red-500/10"
+				class="flex w-full items-center gap-3 rounded-lg px-4 py-3 font-display text-sm font-medium text-red-400 transition-all hover:bg-red-500/10"
 				onclick={handleLogout}
 			>
 				<LogOut class="size-5" />
@@ -390,11 +383,11 @@
 	{/if}
 
 	<div class="flex flex-1 flex-col">
-		<header class="sticky top-0 z-10 flex items-center justify-between bg-white p-4 shadow-sm lg:hidden">
+		<header class="sticky top-0 z-10 flex items-center justify-between border-b-2 border-gold bg-white p-4 shadow-sm lg:hidden">
 			<button onclick={() => (isSidebarOpen = true)}>
 				<Menu class="size-6" />
 			</button>
-			<h1 class="text-lg font-bold">
+			<h1 class="font-display text-lg font-bold">
 				{activeTab === 'home' && 'Dashboard'}
 				{activeTab === 'layanan' && 'Kelola Layanan'}
 				{activeTab === 'users' && 'Kelola Petugas'}
@@ -404,12 +397,13 @@
 
 		<main class="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
 			{#if activeTab === 'home'}
-				<div class="grid grid-cols-1 gap-6 md:grid-cols-3">
+				<div class="grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-6">
 					{#each statCards as card (card.label)}
-						<Card>
+						<Card class="overflow-hidden">
+							<div class="h-1 bg-gold"></div>
 							<CardHeader>
 								<CardDescription>{card.label}</CardDescription>
-								<CardTitle class="text-3xl {card.color}">{card.value}</CardTitle>
+								<CardTitle class="font-display text-3xl font-bold tabular-nums {card.color}">{card.value}</CardTitle>
 							</CardHeader>
 						</Card>
 					{/each}
@@ -418,17 +412,17 @@
 				<div class="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
 					<Card>
 						<CardHeader>
-							<CardTitle>Tren Antrian 7 Hari</CardTitle>
+							<CardTitle class="font-display">Tren Antrian 7 Hari</CardTitle>
 							<CardDescription>Jumlah antrian per hari (total & selesai)</CardDescription>
 						</CardHeader>
 						<CardContent class="space-y-4">
 							<div class="flex gap-6">
 								{#each weeklyData as item (item.date)}
 									<div class="flex flex-1 flex-col items-center gap-1">
-										<span class="text-sm font-bold">{item.total}</span>
+										<span class="font-display text-sm font-bold tabular-nums">{item.total}</span>
 										<div class="flex h-32 w-full items-end gap-0.5">
 											<div
-												class="flex-1 rounded-t bg-emerald-500"
+												class="flex-1 rounded-t bg-navy"
 												style="height: {item.selesai > 0 ? (item.selesai / Math.max(...weeklyData.map((d) => d.total), 1)) * 100 : 2}%"
 											></div>
 										</div>
@@ -441,7 +435,7 @@
 
 					<Card>
 						<CardHeader>
-							<CardTitle>Antrian per Layanan</CardTitle>
+							<CardTitle class="font-display">Antrian per Layanan</CardTitle>
 							<CardDescription>Distribusi hari ini</CardDescription>
 						</CardHeader>
 						<CardContent>
@@ -457,8 +451,11 @@
 					</Card>
 				</div>
 			{:else if activeTab === 'layanan'}
-				<div class="mb-4 flex items-center justify-between">
-					<h2 class="text-xl font-bold">Kelola Layanan</h2>
+				<div class="mb-5 flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
+					<div>
+						<p class="font-display text-xs font-semibold uppercase tracking-widest text-gold-deep">Manajemen</p>
+						<h2 class="font-display text-xl font-bold tracking-tight text-navy sm:text-2xl">Kelola Layanan</h2>
+					</div>
 					<Button onclick={openAddLayanan}>
 						<Plus class="size-4" />
 						Tambah Layanan
@@ -516,8 +513,11 @@
 					</CardContent>
 				</Card>
 			{:else}
-				<div class="mb-4 flex items-center justify-between">
-					<h2 class="text-xl font-bold">Kelola Petugas</h2>
+				<div class="mb-5 flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
+					<div>
+						<p class="font-display text-xs font-semibold uppercase tracking-widest text-gold-deep">Manajemen</p>
+						<h2 class="font-display text-xl font-bold tracking-tight text-navy sm:text-2xl">Kelola Petugas</h2>
+					</div>
 					<Button onclick={openAddUser}>
 						<Plus class="size-4" />
 						Tambah Petugas

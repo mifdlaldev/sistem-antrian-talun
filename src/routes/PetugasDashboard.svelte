@@ -106,23 +106,25 @@
 	}
 </script>
 
-<div class="min-h-screen bg-slate-50 text-slate-800">
-	<nav class="sticky top-0 z-50 flex items-center justify-between border-b border-slate-200 bg-white px-6 py-4">
+<div class="min-h-screen bg-muted/40 text-foreground">
+	<nav class="sticky top-0 z-50 flex items-center justify-between border-b-2 border-gold bg-white px-4 py-3 shadow-sm sm:px-6 sm:py-4">
 		<div class="flex items-center gap-3">
-			<div class="rounded-lg bg-emerald-100 p-2 text-emerald-700">
+			<div class="rounded-lg bg-navy p-2.5 text-gold">
 				{#if petugas.id_layanan_ditugaskan}
-					<User class="size-6" />
+					<User class="size-5" />
 				{:else}
-					<Layers class="size-6" />
+					<Layers class="size-5" />
 				{/if}
 			</div>
 			<div>
-				<h1 class="text-lg font-bold uppercase">{namaLayananTugas}</h1>
-				<p class="text-xs text-slate-500">{petugas.nama}</p>
+				<h1 class="font-display text-base font-bold uppercase tracking-wide text-navy sm:text-lg">
+					{namaLayananTugas}
+				</h1>
+				<p class="text-xs text-muted-foreground">{petugas.nama}</p>
 			</div>
 		</div>
 		<button
-			class="flex items-center gap-2 rounded-lg p-2 text-sm font-medium text-red-500 hover:bg-red-50"
+			class="flex items-center gap-2 rounded-lg p-2 text-sm font-medium text-red-500 transition-colors hover:bg-red-50"
 			onclick={() => (dialogLogout = true)}
 		>
 			<LogOut class="size-4.5" />
@@ -130,52 +132,54 @@
 		</button>
 	</nav>
 
-	<main class="mx-auto max-w-5xl px-6 py-8">
-		<div class="grid grid-cols-1 gap-6 md:grid-cols-3">
-			<div class="space-y-4">
-				<Card>
+	<main class="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
+		<div class="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-3">
+			<div class="grid grid-cols-2 gap-4 sm:gap-6 md:col-span-3 md:grid-cols-3">
+				<Card class="overflow-hidden">
+					<div class="h-1 bg-gold"></div>
 					<CardContent class="flex items-center justify-between">
 						<div>
-							<p class="text-sm text-slate-500">Sisa Antrian</p>
-							<h3 class="text-3xl font-bold">{sisaAntrian}</h3>
+							<p class="text-sm text-muted-foreground">Sisa Antrian</p>
+							<h3 class="font-display text-3xl font-bold tabular-nums text-navy">{sisaAntrian}</h3>
 						</div>
-						<Users class="size-7 text-orange-400" />
+						<Users class="size-7 text-gold-deep" />
 					</CardContent>
 				</Card>
-				<Card>
+				<Card class="overflow-hidden">
+					<div class="h-1 bg-navy"></div>
 					<CardContent class="flex items-center justify-between">
 						<div>
-							<p class="text-sm text-slate-500">Total Selesai</p>
-							<h3 class="text-3xl font-bold text-emerald-600">{totalSelesai}</h3>
+							<p class="text-sm text-muted-foreground">Total Selesai</p>
+							<h3 class="font-display text-3xl font-bold tabular-nums text-green-600">{totalSelesai}</h3>
 						</div>
-						<CheckCircle class="size-7 text-emerald-500" />
+						<CheckCircle class="size-7 text-green-600" />
 					</CardContent>
 				</Card>
 			</div>
 
-			<Card class="flex flex-col overflow-hidden md:col-span-2">
-				<div class="flex flex-1 flex-col items-center justify-center bg-gradient-to-br from-white to-slate-50 p-8">
-					<p class="mb-4 text-xs font-bold uppercase tracking-widest text-slate-400">
+			<Card class="flex flex-col overflow-hidden md:col-span-3">
+				<div class="flex flex-1 flex-col items-center justify-center bg-gradient-to-b from-white to-muted p-6 sm:p-10">
+					<p class="mb-3 font-display text-xs font-semibold uppercase tracking-widest text-gold-deep">
 						Nomor Panggilan
 					</p>
 					{#if antrianSekarang}
 						<div class="text-center">
-							<span class="text-8xl font-bold tracking-tighter text-slate-900">
+							<span class="font-display text-7xl font-bold tabular-nums tracking-tight text-navy sm:text-8xl">
 								{antrianSekarang.nomor_antrian}
 							</span>
 							{#if !petugas.id_layanan_ditugaskan}
-								<p class="mt-2 rounded-full bg-emerald-50 px-3 py-1 text-sm font-bold text-emerald-600">
+								<p class="mx-auto mt-3 w-fit rounded-full bg-gold px-4 py-1 font-display text-sm font-semibold text-navy">
 									{antrianSekarang.layanan?.nama_layanan}
 								</p>
 							{/if}
 						</div>
 					{:else}
-						<span class="text-8xl font-bold text-slate-200">---</span>
+						<span class="font-display text-7xl font-bold tabular-nums text-slate-200 sm:text-8xl">---</span>
 					{/if}
 				</div>
-				<div class="border-t border-slate-200 bg-slate-50 p-6">
+				<div class="border-t border-border bg-muted/60 p-4 sm:p-6">
 					<Button
-						class="w-full py-6 text-lg font-bold shadow-lg"
+						class="w-full py-6 font-display text-lg font-bold shadow-lg"
 						size="lg"
 						disabled={loading}
 						onclick={handleNextAntrian}

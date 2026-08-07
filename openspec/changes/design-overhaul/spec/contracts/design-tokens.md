@@ -15,21 +15,23 @@ di `src/app.css` + utility Tailwind. Berbasis riset: identitas pemerintahan Indo
 
 | Token | Nilai | Penggunaan |
 |---|---|---|
-| `--primary` | `oklch(0.33 0.14 260)` ≈ `#1e3a8a` | Tombol utama, header, sidebar, link |
+| `--primary` | `oklch(0.42 0.15 269)` ≈ `#1e3a8a` | Tombol utama, header, sidebar |
 | `--primary-foreground` | `#ffffff` | Teks di atas primary (kontras ≥9:1) |
-| `--primary-hover` | `#172e6e` | Hover tombol utama |
-| `--primary-soft` | navy-50 `#eff6ff`-ish | Background panel header, chip ringan |
+| `--color-navy` | `oklch(0.42 0.15 269)` | Utility `bg-navy`/`text-navy` (header, teks kuat) |
+| `--color-navy-deep` | `oklch(0.27 0.1 269)` | Utility `bg-navy-deep` (panel gelap, latar monitor, sidebar) |
 
 ### Accent (Gold) — kewibawaan, aksen minimal
 
 | Token | Nilai | Penggunaan |
 |---|---|---|
-| `--accent` | `#d4a017` | Badge aktif, angka di atas navy, border aksen |
-| `--accent-foreground` | navy `#1e3a8a` | Teks di atas permukaan emas (kontras ≥5:1) |
-| `--accent-soft` | emas 12% di atas navy | Chip "dilayani", highlight |
+| `--color-gold` | `oklch(0.71 0.13 84.5)` ≈ `#d4a017` | Utility `bg-gold`/`text-gold`/`border-gold`: angka antrian, badge aktif sidebar, hairline, chip |
+| `--color-gold-deep` | `oklch(0.6 0.12 84)` | Utility `text-gold-deep`: kicker label, aksen teks di atas putih |
+| `--ring` | `oklch(0.71 0.13 84.5)` | Focus ring |
+| `--accent` | warm neutral `oklch(0.97 0.035 85)` | Hover surface (semantik shadcn — tetap netral hangat) |
 
-> Larangan: teks kecil emas di atas putih (gagal kontras). Emas untuk aksen/angka
-> di atas navy atau fill dengan teks navy.
+> Larangan: teks kecil emas di atas putih (gagal kontras). Emas untuk angka/aksen
+> di atas navy, fill dengan teks navy, atau hairline/border. Teks di atas putih pakai
+> `text-gold-deep`.
 
 ### Surface & Netral (Slate)
 
@@ -55,7 +57,8 @@ di `src/app.css` + utility Tailwind. Berbasis riset: identitas pemerintahan Indo
 ### Chart (bar chart SVG)
 
 Urutan: `#1e3a8a` (navy), `#d4a017` (gold), `#64748b` (slate), `#3b82f6` (blue-500),
-`#a8a29e` (stone). Hindari rainbow.
+`#a8a29e` (stone). Didefinisikan sebagai `--chart-1..5` + array `COLORS` di
+AdminDashboard.
 
 ## Tipografi
 

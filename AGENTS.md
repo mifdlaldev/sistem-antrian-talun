@@ -308,6 +308,10 @@ Seed (`0002_seed.sql`): `admin`/`admin123` (role admin), `petugas1`/`petugas123`
 - **Worker:** Hono + TypeScript strict. Routes per-domain di `worker/src/routes/`.
 - **Aliases:** `$lib` → `src/lib` (vite + tsconfig). `@` → `src` (vite only).
 - **Styling:** Tailwind utility classes. shadcn theme tokens (`bg-background`, ...).
+  Palet identitas: navy (`bg-navy`) + gold (`bg-gold`/`text-gold-deep`) — lihat
+  `openspec/changes/design-overhaul/spec/contracts/design-tokens.md`.
+- **Font:** Poppins (`font-display`) untuk heading & nomor antrian; body `font-sans`
+  (system stack). Nomor antrian memakai `tabular-nums`.
 - **UI components:** shadcn-svelte in `src/lib/components/ui/`. Toasts `svelte-sonner`.
   Modals `Dialog`/`AlertDialog`. Icons `@lucide/svelte/icons`.
 - **Validation:** Valibot (`src/lib/schemas.ts`) — shared antara client dan worker.

@@ -59,8 +59,8 @@
 </script>
 
 {#if loading}
-	<div class="flex min-h-screen items-center justify-center bg-background">
-		<div class="size-10 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+	<div class="flex min-h-screen items-center justify-center bg-muted/40">
+		<div class="size-10 animate-spin rounded-full border-4 border-navy border-t-transparent"></div>
 	</div>
 {:else if effectivePath === '/'}
 	<Kiosk />
@@ -73,9 +73,9 @@
 {:else if effectivePath === '/petugas/dashboard'}
 	<PetugasDashboard />
 {:else}
-	<div class="flex min-h-screen items-center justify-center bg-background">
+	<div class="flex min-h-screen items-center justify-center bg-muted/40">
 		<div class="text-center">
-			<h1 class="text-6xl font-bold tracking-tight">404</h1>
+			<h1 class="font-display text-6xl font-bold tracking-tight text-navy">404</h1>
 			<p class="mt-2 text-muted-foreground">Halaman Tidak Ditemukan</p>
 		</div>
 	</div>
