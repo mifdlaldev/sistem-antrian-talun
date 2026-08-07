@@ -27,19 +27,22 @@ Dibangun sebagai proyek **Ujikom SMKN 1 Sumedang 2026**.
 
 | Teknologi | Keterangan |
 |---|---|
-| React 19 | UI framework |
-| Vite 7 | Build tool & dev server |
+| Svelte 5 | UI framework (runes) — runtime ~1.6 KB |
+| Vite 8 | Build tool & dev server |
+| TypeScript | Strict mode + `noUncheckedIndexedAccess` |
 | Tailwind CSS v4 | Styling (konfigurasi CSS-first via `@theme`) |
-| React Router 7 | Routing SPA |
-| Supabase | Backend: PostgreSQL + Realtime + JS Client (anon key) |
-| SweetAlert2 | Modal & notifikasi |
-| Recharts | Grafik dashboard admin |
-| date-fns | Format tanggal (locale `id`) |
-| lucide-react | Icon |
+| shadcn-svelte | Komponen UI (dibangun di atas bits-ui / Melt UI) |
+| Supabase | Backend: PostgreSQL + Realtime, via `postgrest-js` + `realtime-js` (tanpa `supabase-js` monolitik) |
+| Valibot | Validasi runtime + inferensi skema |
+| Biome | Lint + format (Rust, sangat cepat) |
+| Vitest | Unit tests |
+| svelte-sonner | Toast notification |
+| @lucide/svelte | Icon |
+| Husky + lint-staged | Pre-commit hooks |
 
 ## Persyaratan
 
-- Node.js (npm) — versi yang mendukung Vite 7
+- Node.js (npm) — versi yang mendukung Vite 8
 - Proyek Supabase dengan tabel `layanan`, `antrian`, dan `users` (lihat [Skema Database](#skema-database))
 
 ## Cara Menjalankan
@@ -49,8 +52,24 @@ npm install        # install dependencies
 npm run dev        # jalankan dev server (Vite)
 npm run build      # build produksi (output: dist/)
 npm run preview    # preview hasil build
-npm run lint       # jalankan ESLint
+npm run check      # type-check (svelte-check + tsc)
+npm test           # jalankan unit test (Vitest)
+npm run lint       # biome check
+npm run lint:fix   # biome check --write
+npm run format     # biome format --write
 ```
+
+## Quality Gates
+
+Proyek ini menerapkan standar ketat ("sangat ringan, sangat ketat, sangat cepat"):
+
+- **Type-check:** `svelte-check` (TS strict) harus 0 error, 0 warning.
+- **Lint + format:** Biome (untuk `.ts/.js/.json`; `.svelte`/`.css` ditangani
+  svelte-check/Tailwind).
+- **Test:** Vitest untuk logika murni (`src/lib/queue.test.ts`).
+- **Pre-commit:** Husky + lint-staged menjalankan `biome check --write` otomatis.
+- **Bundle:** ~348 KB min / ~104 KB gzip JS (tanpa React, tanpa recharts, tanpa
+  SweetAlert).
 
 ## Konfigurasi Environment
 
@@ -125,19 +144,25 @@ Kedua variabel dibaca di `src/lib/supabaseClient.js`.
 │   ├── logoinsunmedal.png
 │   └── kantorlurahtalun.jpg
 └── src/
-    ├── main.jsx
-    ├── App.jsx            # Definisi routing
-    ├── index.css          # Tailwind v4 + custom classes
+    ├── main.ts              # Entry point
+    ├── App.svelte           # SPA router custom + guard role + Toaster
+    ├── app.css              # Tailwind v4 + tokens tema shadcn
     ├── lib/
-    │   └── supabaseClient.js
-    ├── data/
-    │   └── mockData.js    # (belum dipakai)
-    ├── components/
-    │   ├── ProtectedRoute.jsx
-    │   └── StrukAntrian.jsx   # (belum dipakai)
-    └── pages/
-        ├── public/   # Kiosk, Monitor, Login
-        └── admin/    # AdminDashboard, PetugasDashboard
+    │   ├── supabaseClient.ts    # PostgrestClient + RealtimeClient + subscribeAntrian()
+    │   ├── schemas.ts           # Skema Valibot (layanan, antrian, users)
+    │   ├── queue.ts             # todayIso(), buildNomorAntrian()
+    │   ├── session.ts           # Session localStorage (get/set/clear)
+    │   ├── router.ts            # navigate() (pushState + popstate)
+    │   ├── queue.test.ts        # Unit test Vitest
+    │   ├── components/
+    │   │   ├── BarChart.svelte  # Chart SVG zero-dependency
+    │   │   └── ui/              # Komponen shadcn-svelte (button, card, dialog, dll)
+    │   └── routes/
+    │       ├── Kiosk.svelte
+    │       ├── Monitor.svelte
+    │       ├── Login.svelte
+    │       ├── AdminDashboard.svelte
+    │       └── PetugasDashboard.svelte
 ```
 
 ## Dokumentasi Spesifikasi (OpenSpec)
@@ -171,13 +196,15 @@ pengaturan proyek Vercel sebelum build.
 
 ## Status & Batasan yang Diketahui
 
-- **Belum ada tes otomatis** dan **belum ada CI/CD configuration** di repository.
+- **Belum ada CI/CD configuration** di repository (kualitas dicek via script lokal:
+  `npm run check`, `npm test`, `npm run lint`).
 - **Print struk belum berfungsi** — Kiosk menampilkan "Sedang mencetak struk..." namun
-  komponen `StrukAntrian` & pustaka `react-to-print` belum dihubungkan (belum ter-wire).
+  tidak ada implementasi pencetakan nyata (komponen `StrukAntrian` React dihapus saat
+  migrasi).
 - **Nomor antrian bisa dobel** saat dua permintaan bersamaan (count-then-insert
   non-atomic).
-- **Dependency yang belum terpakai:** `axios`, `react-to-print`, `src/data/mockData.js`,
-  `src/components/StrukAntrian.jsx`.
+- **Komponen UI belum diuji** — test Vitest hanya mencakup logika murni
+  (`queue.ts`, `schemas.ts`).
 
 ## Catatan Keamanan
 

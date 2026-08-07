@@ -20,7 +20,7 @@ layanan → sistem menghitung antrian hari ini untuk layanan itu → membuat nom
 ### Requirement: Daftar layanan dimuat dari Supabase
 
 Kiosk HARUS memuat semua baris `layanan` urut `id_layanan` ascending saat halaman
-dibuka (`useEffect` + `supabase.from("layanan").select("*").order("id_layanan")`).
+dibuka (`onMount` + `supabase.from("layanan").select("*").order("id_layanan")`).
 Loading state ditampilkan selama fetch.
 
 ### Requirement: Penghitungan nomor antrian per hari per layanan
@@ -42,6 +42,6 @@ Baris baru HARUS berisi `nomor_antrian`, `id_layanan`, `status: "menunggu"`,
 
 ### Requirement: Popup hasil
 
-Popup SweetAlert HARUS menampilkan nomor antrian, nama layanan, dan teks
+Popup shadcn `Dialog` HARUS menampilkan nomor antrian, nama layanan, dan teks
 "Sedang mencetak struk...". Teks tersebut adalah **placeholder** — tidak ada pencetakan
-nyata. `StrukAntrian.jsx` dan `react-to-print` belum ter-wire ke halaman ini.
+nyata.

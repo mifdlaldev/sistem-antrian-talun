@@ -43,8 +43,10 @@ ini.** Untuk skema otoritatif, periksa langsung di dashboard Supabase project.
 
 ## Catatan Referensi Query
 
-- `Monitor.jsx`: `.select("*, layanan(*), users(*)")` — join `users(*)` mengembalikan
+- `Monitor.svelte`: `.select("*, layanan(*), users(*)")` — join `users(*)` mengembalikan
   semua kolom `users` (termasuk `password`) ke halaman publik.
-- `AdminDashboard.jsx`: `.select("*, layanan(nama_layanan)")` untuk daftar petugas.
-- `Kiosk.jsx`: insert antrian dengan `id_layanan`, `nomor_antrian`, `status`,
+- `AdminDashboard.svelte`: `.select("*, layanan(nama_layanan)")` untuk daftar petugas.
+- `Kiosk.svelte`: insert antrian dengan `id_layanan`, `nomor_antrian`, `status`,
   `tanggal` — tanpa `id_user` (diisi belakangan oleh petugas).
+- Client query: `@supabase/postgrest-js` (`PostgrestClient`), realtime via
+  `@supabase/realtime-js` (`subscribeAntrian`).

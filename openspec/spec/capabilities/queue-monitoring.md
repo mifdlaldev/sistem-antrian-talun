@@ -32,15 +32,16 @@ Monitor HARUS mengambil maksimal 5 baris `status: "menunggu"` hari ini, urut
 
 ### Requirement: Langganan realtime
 
-Monitor HARUS subscribe `supabase.channel("public:antrian")` dengan
-`.on("postgres_changes", { event: "*", schema: "public", table: "antrian" }, ...)`
-dan mem-fetch ulang data pada setiap perubahan. Channel HARUS di-remove saat unmount
-(`supabase.removeChannel`).
+Monitor HARUS subscribe via `subscribeAntrian("public:antrian", cb)` dari
+`$lib/supabaseClient` — wrapper `RealtimeClient.channel(...).on("postgres_changes",
+{ event: "*", schema: "public", table: "antrian" }, cb)` — dan mem-fetch ulang data pada
+setiap perubahan. Unsubscribe HARUS dipanggil saat unmount (`onMount` cleanup).
 
 ### Requirement: Jam digital
 
 Jam HARUS diperbarui setiap detik via `setInterval`, ditampilkan format `HH:mm:ss`;
-tanggal diformat dengan `date-fns` locale `id` (contoh "Jumat, 07 Agustus 2026").
+tanggal diformat dengan `Intl.DateTimeFormat` locale `id-ID` (contoh "Jumat, 07 Agustus
+2026").
 
 ### Requirement: Tampilan
 

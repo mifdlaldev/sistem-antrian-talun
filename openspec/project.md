@@ -36,27 +36,39 @@ OUT OF SCOPE / TIDAK ADA (jangan diklaim ada):
 
 ## Constraints
 
-- **Frontend:** React 19, Vite 7, Tailwind CSS v4 (CSS-first via `@theme`), React Router 7.
-- **Backend:** Supabase (PostgreSQL + Realtime) diakses langsung dari browser via anon key.
+- **Frontend:** Svelte 5 (runes), Vite 8, TypeScript strict + `noUncheckedIndexedAccess`,
+  Tailwind CSS v4 (CSS-first via `@theme`), shadcn-svelte (bits-ui) untuk UI,
+  `@lucide/svelte` untuk ikon, `svelte-sonner` untuk toast.
+- **Backend:** Supabase (PostgreSQL + Realtime) diakses langsung dari browser via
+  anon key — menggunakan `@supabase/postgrest-js` + `@supabase/realtime-js`
+  (BUKAN `@supabase/supabase-js`).
+- **Validasi:** Valibot (`src/lib/schemas.ts`) — schema inference + runtime validation.
+- **Kualitas:** svelte-check 0 error/0 warning, Biome lint+format (`.ts/.js/.json`),
+  Vitest untuk logika murni, Husky + lint-staged pre-commit.
 - **Deploy:** Vercel dengan SPA rewrite (`vercel.json`).
 - **Bahasa:** Indonesia untuk UI, komentar, dan nama variabel.
 - **Keamanan (terdokumentasi, jangan disembunyikan):** password plaintext, session
-  localStorage forgeable, join `users(*)` di halaman publik, stored XSS di SweetAlert,
-  `.env` pernah ter-commit. Lihat `capabilities` dan `contracts` terkait.
+  localStorage forgeable, join `users(*)` di halaman publik. Lihat `capabilities` dan
+  `contracts` terkait.
 - **Nomor antrian:** count-then-insert non-atomic — duplikat mungkin saat konkurensi.
 
 ## Conventions
 
-- Komponen `.jsx`, function component, default export.
-- Styling: Tailwind utility classes inline. Beberapa class helper legacy di
-  `src/index.css` (`.card`, `.btn-primary`, `.btn-danger`, `.btn-kiosk`,
-  `.input-field`, `.layout-container`) — prefer utility classes untuk kode baru.
-- Modal/toast: `sweetalert2` diimport sebagai `Swal`.
-- Ikon: `lucide-react`.
-- Tanggal: `date-fns` v4 dengan locale `id` untuk display; kolom `tanggal` disimpan
-  sebagai string ISO UTC `YYYY-MM-DD`.
-- State/data: `useState` + `useEffect` + panggilan Supabase langsung. Tanpa state
-  manager, tanpa library data-fetching, tanpa TypeScript.
+- Komponen `.svelte` (Svelte 5 runes: `$state`, `$derived`, `$props`, `$effect`),
+  TypeScript `lang="ts"`.
+- Alias `$lib` → `src/lib` (vite + tsconfig); `@` → `src` (vite only).
+- Styling: Tailwind utility classes + tokens tema shadcn (`bg-background`,
+  `text-foreground`, dll. dari `src/app.css`).
+- UI: shadcn-svelte di `src/lib/components/ui/`. Modal pakai `Dialog`/`AlertDialog`,
+  toast `svelte-sonner`, ikon `@lucide/svelte/icons`. DILARANG reintroduce SweetAlert.
+- Validasi: Valibot schema di `src/lib/schemas.ts`, divalidasi di boundary
+  (respons Supabase, session localStorage).
+- State/data: runes + `onMount` + panggilan `PostgrestClient` langsung. Tanpa state
+  manager, tanpa library data-fetching.
+- Router: custom path-based di `App.svelte` (`resolveTarget` + `navigate()`),
+  bukan SvelteKit.
+- Tanggal: `Intl.DateTimeFormat` locale `id-ID`. Kolom `tanggal` disimpan sebagai
+  string ISO UTC `YYYY-MM-DD` via `todayIso()`.
 
 ## Glossary
 

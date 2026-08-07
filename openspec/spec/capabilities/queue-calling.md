@@ -43,11 +43,11 @@ terpilih HARUS diset `status: "dilayani"` dan `id_user: petugas.id`.
 
 ### Requirement: Notifikasi
 
-Berhasil memanggil → SweetAlert toast sukses "Memanggil {nomor_antrian}". Tidak ada
-antrian → SweetAlert info "Antrian Kosong".
+Berhasil memanggil → toast sukses "Memanggil {nomor_antrian}" via `svelte-sonner`.
+Tidak ada antrian → toast info "Antrian Kosong".
 
 ### Requirement: Langganan realtime
 
-Dashboard HARUS subscribe `postgres_changes` event `*` tabel `public.antrian` dan
-mem-fetch ulang statistik (sisa antrian, total selesai) pada setiap perubahan. Channel
-HARUS di-remove saat unmount.
+Dashboard HARUS subscribe via `subscribeAntrian("dashboard-petugas", cb)` dan
+mem-fetch ulang statistik (sisa antrian, total selesai) pada setiap perubahan.
+Unsubscribe HARUS dipanggil saat unmount.

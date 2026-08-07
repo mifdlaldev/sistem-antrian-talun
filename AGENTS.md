@@ -18,15 +18,15 @@ here conflicts with code you read, the code wins — update this file, never the
    SQL migration (there is none in this repo). If you need the authoritative schema,
    inspect the Supabase project directly.
 
-3. **Never invent configuration files, CI workflows, tests, or deployment settings.**
-   This project has **no tests, no CI configuration, and no Supabase migration files.**
-   Do not claim otherwise.
+3. **Never invent configuration files, CI workflows, or deployment settings.**
+   This project has **Vitest tests** (`src/lib/*.test.ts`) but **no CI configuration and
+   no Supabase migration files.** Do not claim otherwise.
 
 4. **Never "fix" or "improve" security issues silently** (e.g., plaintext passwords,
    localStorage-based auth). Flag them to the user and get explicit approval first.
 
-5. **Never rewrite working code "for cleanliness" without being asked.** This is a small
-   production-deployed codebase. Prefer minimal, targeted changes.
+5. **Never rewrite working code "for cleanliness" without being asked.** Prefer minimal,
+   targeted changes.
 
 6. **Before editing any file, read it first.** Do not trust memory or a previous agent's
    summary. Use the tooling available (e.g., codegraph, grep, read) to confirm current
@@ -53,7 +53,8 @@ exam) project for SMKN 1 Sumedang, 2026.
 - **Type:** Frontend-only single-page application (SPA). No backend server code exists in
   this repository.
 - **Backend / database:** Supabase (PostgreSQL + Realtime), accessed directly from the
-  browser via the Supabase JS client with the anon key.
+  browser via the anon key using `@supabase/postgrest-js` and `@supabase/realtime-js`
+  (NOT the monolithic `@supabase/supabase-js`).
 - **Deployment:** Vercel (SPA rewrites, see `vercel.json`).
 - **Live URL:** `https://website-antrian-kelurahan-talun.vercel.app`
 
@@ -63,18 +64,25 @@ exam) project for SMKN 1 Sumedang, 2026.
 
 | Package | Version | Purpose |
 |---|---|---|
-| `react` / `react-dom` | ^19.2.0 | UI framework |
-| `vite` | ^7.2.4 | Build tool / dev server |
-| `@vitejs/plugin-react` | ^5.1.1 | React plugin |
-| `tailwindcss` + `@tailwindcss/vite` | ^4.1.18 | Styling (Tailwind v4, CSS-first config) |
-| `react-router-dom` | ^7.13.0 | Routing |
-| `@supabase/supabase-js` | ^2.95.3 | Supabase client + Realtime |
-| `sweetalert2` | ^11.26.18 | Modals / toasts |
-| `recharts` | ^3.7.0 | Admin charts |
-| `date-fns` | ^4.1.0 | Date formatting (Monitor clock, Indonesian locale) |
-| `lucide-react` | ^0.563.0 | Icons |
-| `axios` | ^1.13.4 | **Installed but UNUSED in source** |
-| `react-to-print` | ^3.2.0 | **Installed but UNUSED in source** |
+| `svelte` | ^5.56.8 | UI framework (runes mode) |
+| `vite` | ^8.2.0 | Build tool / dev server |
+| `typescript` | ~6.0.2 | Static typing (strict mode) |
+| `@sveltejs/vite-plugin-svelte` | ^7.2.0 | Svelte Vite plugin |
+| `tailwindcss` + `@tailwindcss/vite` | ^4.3.3 | Styling (Tailwind v4, CSS-first config) |
+| `@supabase/postgrest-js` | latest | Supabase PostgREST client (queries) |
+| `@supabase/realtime-js` | latest | Supabase Realtime (websocket) |
+| `valibot` | ^1.4.2 | Runtime validation + schema inference |
+| `bits-ui` | ^2.18.1 | Headless UI primitives (shadcn-svelte base) |
+| `@lucide/svelte` | ^1.30.0 | Icons |
+| `svelte-sonner` | ^1.1.1 | Toasts |
+| `clsx` / `tailwind-merge` / `tailwind-variants` | — | shadcn-svelte helpers |
+| `@biomejs/biome` | ^2.5.7 | Lint + format (Rust) |
+| `vitest` | ^4.1.10 | Unit tests |
+| `husky` + `lint-staged` | — | Pre-commit hooks |
+
+**REMOVED in the Svelte migration (do not re-add):** `react`, `react-dom`,
+`react-router-dom`, `@supabase/supabase-js`, `date-fns`, `recharts`, `sweetalert2`,
+`axios`, `react-to-print`, `lucide-react`.
 
 ---
 
@@ -85,10 +93,14 @@ npm install          # install dependencies
 npm run dev          # start Vite dev server
 npm run build        # production build (output: dist/)
 npm run preview      # preview the production build
-npm run lint         # run ESLint
+npm run check        # svelte-check (type + a11y) + tsc for node config
+npm test             # run Vitest (unit tests)
+npm run lint         # biome check
+npm run lint:fix     # biome check --write
+npm run format       # biome format --write
 ```
 
-Node/package manager: npm. No test runner is configured.
+Pre-commit hook: `lint-staged` runs `biome check --write` on staged files.
 
 ---
 
@@ -97,8 +109,13 @@ Node/package manager: npm. No test runner is configured.
 ```
 .
 ├── index.html                 # Vite entry HTML
-├── vite.config.js             # Vite + React + Tailwind v4 plugin
-├── eslint.config.js           # ESLint 9 flat config
+├── vite.config.ts             # Vite + Svelte + Tailwind v4 + $lib alias + Vitest config
+├── svelte.config.js           # vitePreprocess
+├── tsconfig.json              # Solution config: app + node + $lib paths
+├── tsconfig.app.json          # App TS (strict, noUncheckedIndexedAccess, $lib paths)
+├── tsconfig.node.json         # Node-side TS (vite config)
+├── biome.json                 # Lint/format (excludes *.svelte + *.css)
+├── components.json            # shadcn-svelte config
 ├── vercel.json                # SPA rewrite: all routes → /index.html
 ├── LICENSE                    # Apache License 2.0
 ├── AGENTS.md                  # This file — agent guidelines (no hallucination)
@@ -110,48 +127,60 @@ Node/package manager: npm. No test runner is configured.
 │       └── contracts/         # database-schema, session
 ├── public/
 │   ├── logoinsunmedal.png     # Logo (used in navbar/header)
-│   ├── kantorlurahtalun.jpg   # Office photo (Monitor display background)
-│   └── vite.svg               # Vite default favicon (unused)
+│   └── kantorlurahtalun.jpg   # Office photo (Monitor display background)
 └── src/
-    ├── main.jsx               # React entry point (StrictMode)
-    ├── App.jsx                # Router definition (see routing table)
-    ├── index.css              # Tailwind v4 import + @theme + custom component classes
+    ├── main.ts                # Entry point (mount App)
+    ├── App.svelte             # Custom path-based SPA router + role guard + Toaster
+    ├── app.css                # Tailwind v4 + shadcn theme tokens
     ├── lib/
-    │   └── supabaseClient.js  # Exports `supabase` client (anon key)
-    ├── data/
-    │   └── mockData.js        # UNUSED mock data (mockLayanan, mockAntrian)
-    ├── components/
-    │   ├── ProtectedRoute.jsx # Role guard based on localStorage session
-    │   └── StrukAntrian.jsx   # Print receipt component — UNUSED (not wired anywhere)
-    └── pages/
-        ├── public/
-        │   ├── Kiosk.jsx            # / — take a queue number
-        │   ├── Monitor.jsx          # /monitor — TV display, realtime
-        │   └── Login.jsx            # /login — username/password login
-        └── admin/
-            ├── AdminDashboard.jsx   # /admin/dashboard — stats + CRUD layanan & users
-            └── PetugasDashboard.jsx # /petugas/dashboard — call next queue
+    │   ├── supabaseClient.ts  # PostgrestClient + RealtimeClient + subscribeAntrian()
+    │   ├── schemas.ts         # Valibot schemas: layanan, antrian, users + joined types
+    │   ├── queue.ts           # todayIso(), buildNomorAntrian() — pure, tested
+    │   ├── session.ts         # getSession/setSession/clearSession (localStorage)
+    │   ├── router.ts          # navigate() — pushState + popstate
+    │   ├── utils.ts           # cn() + shadcn type helpers
+    │   ├── queue.test.ts      # Vitest tests for queue.ts + schemas.ts
+    │   ├── components/
+    │   │   ├── BarChart.svelte    # Zero-dependency SVG bar chart (admin)
+    │   │   └── ui/                # shadcn-svelte components (button, card, dialog, ...)
+    │   └── routes/
+    │       ├── Kiosk.svelte           # / — take a queue number
+    │       ├── Monitor.svelte         # /monitor — TV display, realtime
+    │       ├── Login.svelte           # /login — username/password login
+    │       ├── AdminDashboard.svelte  # /admin/dashboard — stats + CRUD
+    │       └── PetugasDashboard.svelte # /petugas/dashboard — call next queue
+    └── routes/ (dir)           # (page components live in src/lib/routes — see above)
 ```
+
+> Note: page components are in `src/lib/routes/` (not `src/routes/`). Do not assume a
+> SvelteKit file-based router — this is a custom SPA router in `App.svelte`.
 
 ---
 
-## Routing (verified from `src/App.jsx`)
+## Routing (verified from `src/App.svelte`)
+
+Custom path-based router. `App.svelte` reads `window.location.pathname`, listens to
+`popstate`, and renders a component per path. Navigation uses `navigate(path)` from
+`$lib/router.ts`.
 
 | Path | Component | Guard |
 |---|---|---|
 | `/` | `Kiosk` | Public |
 | `/monitor` | `Monitor` | Public |
 | `/login` | `Login` | Public |
-| `/admin/dashboard` | `AdminDashboard` | `ProtectedRoute` with `allowedRoles=["admin"]` |
-| `/petugas/dashboard` | `PetugasDashboard` | `ProtectedRoute` with `allowedRoles=["petugas"]` |
+| `/admin/dashboard` | `AdminDashboard` | session exists + role `admin` |
+| `/petugas/dashboard` | `PetugasDashboard` | session exists + role `petugas` |
 | `/dashboard` | Redirect → `/login` | — |
-| `*` | 404 "Halaman Tidak Ditemukan" | — |
+| any other | 404 "Halaman Tidak Ditemukan" | — |
+
+Guard behavior: `resolveTarget(path)` checks `getSession()`; mismatched role redirects to
+the caller's own dashboard; no session redirects to `/login`.
 
 ---
 
 ## Environment Variables
 
-Required (read in `src/lib/supabaseClient.js`):
+Required (read in `src/lib/supabaseClient.ts`):
 
 ```
 VITE_SUPABASE_URL=
@@ -182,7 +211,7 @@ See Security Notes.
 | `id_layanan` | FK → `layanan.id_layanan` |
 | `id_user` | FK → `users.id_user`, nullable; set to the petugas who is serving |
 | `status` | text: `menunggu` \| `dilayani` \| `selesai` |
-| `tanggal` | date (stored as `YYYY-MM-DD` ISO string, derived from `new Date().toISOString().split("T")[0]`) |
+| `tanggal` | date (stored as `YYYY-MM-DD` ISO string via `todayIso()`) |
 | `waktu_selesai` | timestamp, nullable; set when status → `selesai` |
 
 ### `users`
@@ -195,55 +224,54 @@ See Security Notes.
 | `role` | text: `admin` \| `petugas` |
 | `id_layanan` | FK → `layanan.id_layanan`, **nullable**; `null` = "general" petugas (all services) |
 
-> The `antrian` table is joined with `layanan` and `users` via
-> `.select("*, layanan(*), users(*)")` in `Monitor.jsx` — meaning the public monitor page
-> receives **all columns of `users`**, including `password`.
+> `Monitor.svelte` still queries `.select("*, layanan(*), users(*)")` — the public monitor
+> page receives **all columns of `users`**, including `password`. Known vulnerability.
 
 ---
 
 ## Key Behaviors (verified)
 
-### Queue number generation (`Kiosk.jsx` → `handleAmbilAntrian`)
+### Queue number generation (`Kiosk.svelte` → `handleAmbilAntrian`)
 1. Counts today's rows in `antrian` where `id_layanan = X` and `tanggal >= today`.
 2. `urutan = count + 1`.
-3. `nomorBaru = \`${layanan.kode_huruf}-${String(urutan).padStart(3, "0")}\`` (e.g. `A-001`).
-4. Inserts row with `status: "menunggu"` and `tanggal: today`.
+3. `nomor = buildNomorAntrian(layanan.kode_huruf, urutan)` → `\`${kodeHuruf}-${String(urutan).padStart(3, "0")}\``.
+4. Inserts row with `status: "menunggu"` and `tanggal: todayIso()`.
+5. Shows a shadcn `Dialog` ("Berhasil") that auto-closes after 4 seconds.
 
-**This is a count-then-insert, non-atomic. Concurrent requests can produce duplicate
-numbers.** Known limitation — do not claim it is race-safe.
+**Count-then-insert is non-atomic. Concurrent requests can produce duplicate numbers.**
+Known limitation — do not claim it is race-safe.
 
-### Login (`Login.jsx` → `handleLogin`)
+### Login (`Login.svelte` → `handleLogin`)
 - Queries `users` with `.eq("username", …).eq("password", …)` — plaintext comparison,
   client-side.
-- On success, stores the **entire user row** in `localStorage` under key `user_session`.
+- On success, validates with `UserSchema` (Valibot) and stores the **entire user row** in
+  `localStorage` under key `user_session` (via `setSession`).
 - No Supabase Auth is used. No tokens. No expiry.
 
-### Auth guard (`ProtectedRoute.jsx`)
-- Reads `localStorage.getItem("user_session")`; if absent → redirect `/login`.
-- If role not in `allowedRoles` → redirect to `/admin/dashboard` (admin) or
-  `/petugas/dashboard` (otherwise).
+### Auth guard (`App.svelte` → `resolveTarget`)
+- Reads session via `getSession()` (`localStorage["user_session"]`, Valibot-validated).
+- If absent → `/login`. If role not allowed → redirect to own dashboard.
 - **The session is trivially forgeable**: any visitor can
   `localStorage.setItem("user_session", JSON.stringify({ role: "admin" }))`. Known
   limitation.
 
-### Realtime (`Monitor.jsx`, `PetugasDashboard.jsx`)
-- `supabase.channel(...)` + `.on("postgres_changes", { event: "*", schema: "public", table: "antrian" }, ...)`.
-- Monitor refetches queue data on any change. Petugas dashboard refetches stats.
+### Realtime (`Monitor.svelte`, `PetugasDashboard.svelte`)
+- `subscribeAntrian(channelName, cb)` in `supabaseClient.ts` wraps
+  `RealtimeClient.channel(name).on("postgres_changes", { event: "*", schema: "public", table: "antrian" }, cb)`.
+- Returns an unsubscribe function; both pages call it in `onMount` cleanup.
 
-### Petugas call-next flow (`PetugasDashboard.jsx` → `handleNextAntrian`)
+### Petugas call-next flow (`PetugasDashboard.svelte` → `handleNextAntrian`)
 1. If a queue row is currently `dilayani` by this user → set it to `selesai` + `waktu_selesai: new Date()`.
 2. Fetch first `menunggu` row ordered by `id_antrian` ASC (FIFO), filtered by `id_layanan`
    if the petugas is a specialist (`id_layanan` not null).
 3. Set it to `dilayani` + `id_user: petugas.id`.
-4. If petugas is "general" (`id_layanan` null): no service filter — takes whoever came first.
+4. General petugas (`id_layanan` null): no service filter — takes whoever came first.
 
-### Admin CRUD (`AdminDashboard.jsx`)
-- Tabs: `home` (stats + Recharts charts), `layanan` (CRUD via SweetAlert modals),
-  `users` (CRUD petugas via SweetAlert modals).
+### Admin CRUD (`AdminDashboard.svelte`)
+- Custom sidebar tabs (home/layanan/users) with shadcn `Table`, `Dialog`, `AlertDialog`,
+  `NativeSelect`. Toasts via `svelte-sonner`.
 - Adding a user hardcodes `role: "petugas"`.
-- **SweetAlert `html:` fields interpolate user-entered values unescaped**
-  (e.g. `value="${item.nama_layanan}"`). Stored-XSS risk. Known limitation — do not
-  duplicate this pattern in new code.
+- Charts: zero-dependency SVG (`BarChart.svelte`) — Recharts was removed.
 
 ---
 
@@ -251,17 +279,23 @@ numbers.** Known limitation — do not claim it is race-safe.
 
 - **Language:** Indonesian (UI text, comments, variable names: `daftarLayanan`,
   `handleAmbilAntrian`, `fetchDataAntrian`, etc.). Keep it consistent.
-- **Components:** `.jsx` files, named or default-exported function components.
-- **Styling:** Tailwind utility classes inline. Some legacy class helpers in `src/index.css`
-  (`.card`, `.btn-primary`, `.btn-danger`, `.btn-kiosk`, `.input-field`, `.layout-container`)
-  plus heavy SweetAlert2 overrides — prefer plain utilities for new code.
-- **Icons:** `lucide-react`.
-- **Modals/toasts:** `sweetalert2` (imported as `Swal`).
-- **Dates:** `date-fns` v4 with `id` locale for display; queue `tanggal` stored as UTC ISO
-  date string.
-- **State/data fetching:** plain `useState` + `useEffect` with Supabase calls. No data
-  fetching library, no state manager, no TypeScript.
-- **Font:** Inter (declared via `--font-sans` in `@theme`).
+- **Components:** `.svelte` files, Svelte 5 **runes** (`$state`, `$derived`, `$props`,
+  `$effect`). No legacy `export let` unless necessary.
+- **Aliases:** `$lib` → `src/lib` (vite + tsconfig). `@` → `src` (vite only).
+- **Styling:** Tailwind utility classes. shadcn theme tokens via `--color-*` variables
+  (`bg-background`, `text-foreground`, `bg-primary`, `bg-muted`, etc.) from `app.css`.
+- **UI components:** shadcn-svelte in `src/lib/components/ui/`. Toasts via `svelte-sonner`
+  (`import { toast } from 'svelte-sonner'`).
+- **Icons:** `@lucide/svelte/icons` (named imports).
+- **Modals:** shadcn `Dialog` / `AlertDialog` — do NOT reintroduce SweetAlert.
+- **Validation:** Valibot schemas in `src/lib/schemas.ts`. Validate at boundaries
+  (Supabase responses, localStorage session).
+- **State/data fetching:** Svelte 5 runes + `onMount` + direct PostgrestClient calls. No
+  state manager.
+- **Strictness:** TS strict + `noUncheckedIndexedAccess`. `tsc`/svelte-check must pass.
+  Biome for `.ts/.js/.json` (`.svelte` + `.css` handled by svelte-check / Tailwind).
+- **Dates:** `Intl.DateTimeFormat` with `id-ID` locale (date-fns was removed).
+- **Font:** system font stack (shadcn default).
 
 ---
 
@@ -269,16 +303,16 @@ numbers.** Known limitation — do not claim it is race-safe.
 
 | Area | Status |
 |---|---|
-| Tests | **None.** No test runner configured. |
+| Tests | **Vitest**: 4 tests in `src/lib/queue.test.ts` (queue + schemas). No component tests. |
 | CI | **None.** No GitHub Actions / workflows. |
 | SQL migrations | **None.** Schema exists only inside the Supabase project. |
-| Print receipt (StrukAntrian) | Component + `react-to-print` installed, **not wired**. Kiosk shows "Sedang mencetak struk..." but nothing prints. |
+| Print receipt | Removed with React migration (`StrukAntrian`/`react-to-print` gone). Kiosk dialog still shows "Sedang mencetak struk..." — no real printing. |
 | Auth | localStorage-based, forgeable, no expiry. |
 | Passwords | Stored and compared in plaintext. |
-| RLS policies | Not present in this repo; all security depends on Supabase Row Level Security configured in the dashboard. Cannot be verified from code. |
-| `.env` exposure | Supabase anon key was committed publicly via `.env`. |
+| RLS policies | Not present in this repo; all security depends on Supabase Row Level Security. Cannot be verified from code. |
+| `.env` exposure | Supabase anon key was committed publicly via `.env` in the past. |
 | Queue-number uniqueness | Non-atomic count+insert; duplicates possible under concurrency. |
-| Unused deps | `axios`, `react-to-print`, `src/data/mockData.js`, `StrukAntrian.jsx`, `public/vite.svg` |
+| Bundle size | ~348 KB min / ~104 KB gzip JS (Svelte 5 + bits-ui + Supabase clients). |
 | Date/timezone | `tanggal` uses UTC ISO date — may differ from local (WIB) day around midnight. |
 
 ---
@@ -292,7 +326,6 @@ Treat the following as **known vulnerabilities**, not features:
 3. Public monitor page selecting all `users` columns (incl. `password`) via join.
 4. Client-side CRUD on `users`/`layanan`/`antrian` via anon key — exposure depends
    entirely on Supabase RLS.
-5. Stored XSS via unescaped values in SweetAlert `html:` templates.
-6. Committed `.env` with Supabase anon key.
+5. Committed `.env` with Supabase anon key (in the past).
 
 Do not silently "fix" these. Surface them, propose a plan, and get user approval.

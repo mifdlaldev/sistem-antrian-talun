@@ -13,11 +13,11 @@ tanpa verifikasi server. Tidak menggunakan Supabase Auth.
 ### Key: `user_session`
 
 - **Tipe:** JSON string dari **seluruh row** tabel `users`.
-- **Di-set oleh:** `Login.jsx` → `handleLogin` setelah query sukses.
-- **Dibaca oleh:** `ProtectedRoute.jsx` (guard rute), `PetugasDashboard.jsx`
-  (identitas petugas).
-- **Dihapus oleh:** logout di `Login.jsx`, `AdminDashboard.jsx`,
-  `PetugasDashboard.jsx`.
+- **Di-set oleh:** `Login.svelte` → `handleLogin` via `setSession(user)`
+  (`src/lib/session.ts`).
+- **Dibaca oleh:** `App.svelte` → `resolveTarget` via `getSession()`, dan
+  `PetugasDashboard.svelte` (identitas petugas).
+- **Dihapus oleh:** `clearSession()` di logout (Petugas/Admin dashboard).
 
 ## Payload
 

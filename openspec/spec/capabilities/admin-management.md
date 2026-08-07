@@ -23,25 +23,25 @@ Tab `home` HARUS menampilkan jumlah antrian hari ini (`tanggal = today`): total,
 
 ### Requirement: Grafik
 
-Tab `home` HARUS menampilkan grafik tren 7 hari terakhir (recharts) dan distribusi
-antrian per layanan hari ini.
+Tab `home` HARUS menampilkan grafik tren 7 hari terakhir dan distribusi antrian per
+layanan hari ini — **zero-dependency SVG** (`BarChart.svelte`), bukan recharts.
 
 ### Requirement: CRUD layanan
 
-Insert/update/delete tabel `layanan` via modal SweetAlert:
+Insert/update/delete tabel `layanan` via shadcn `Dialog`:
 - Tambah: `nama_layanan` + `kode_huruf` wajib, `deskripsi` opsional.
 - Edit: form diisi nilai saat ini.
 - Hapus: ditolak oleh Supabase jika layanan masih punya baris `antrian` (FK) —
-  pesan error ditampilkan.
+  pesan error ditampilkan via toast.
 
 ### Requirement: CRUD petugas (users)
 
-Insert/update/delete tabel `users` via modal SweetAlert:
-- Tambah user HARUS hardcode `role: "petugas"`; `id_layanan` dari dropdown (kosong =
-  `null` = general).
+Insert/update/delete tabel `users` via shadcn `Dialog`:
+- Tambah user HARUS hardcode `role: "petugas"`; `id_layanan` dari `NativeSelect`
+  (kosong = `null` = general).
 - Password disimpan **plaintext**.
 - Edit: password hanya di-update jika admin mengisi kolom password baru.
-- Hapus: konfirmasi SweetAlert, lalu delete.
+- Hapus: konfirmasi `AlertDialog`, lalu delete.
 
 ### Requirement: Data join layanan
 
@@ -50,12 +50,11 @@ Daftar petugas HARUS diambil dengan join nama layanan
 
 ### Requirement: Risiko stored XSS (jangan ditiru)
 
-Modal edit HARUS meng-interpolasi nilai input pengguna (misal
-`value="${item.nama_layanan}"`, `value="${user.username}"`) ke template `html:`
-SweetAlert **tanpa escape**. Ini risiko stored XSS terdokumentasi. Kode baru DILARANG
-mengikuti pola ini.
+Versi React lama meng-interpolasi nilai input pengguna ke template `html:` SweetAlert
+tanpa escape. Migrasi Svelte TIDAK mengikuti pola ini — form memakai `bind:value` ke
+state, dan data ditampilkan sebagai teks ter-escape otomatis oleh Svelte. Kode baru
+DILARANG meng-interpolasi input pengguna sebagai HTML mentah.
 
 ### Requirement: Logout
 
-Tombol keluar HARUS konfirmasi via SweetAlert, lalu `localStorage.removeItem` +
-redirect `/login`.
+Tombol keluar HARUS `clearSession()` + redirect `/login`.

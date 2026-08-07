@@ -27,18 +27,19 @@ tabel `users`. Ini kerentanan terdokumentasi; jangan klaim aman.
 ### Requirement: Penyimpanan session
 
 Login sukses HARUS menyimpan **seluruh row user** ke `localStorage["user_session"]`
-sebagai JSON string.
+sebagai JSON string (via `setSession` dari `$lib/session`).
 
 ### Requirement: Redirect sesuai role
 
 `role === "admin"` → navigate `/admin/dashboard`; selain itu → `/petugas/dashboard`.
 
-### Requirement: Guard rute (ProtectedRoute)
+### Requirement: Guard rute
 
-`ProtectedRoute` HARUS membaca `localStorage.getItem("user_session")`:
+`App.svelte` → `resolveTarget(path)` HARUS membaca session via `getSession()`
+(`localStorage["user_session"]`, divalidasi Valibot):
 - Tidak ada session → redirect `/login`.
-- Role tidak termasuk `allowedRoles` → redirect `/admin/dashboard` (jika role admin)
-  atau `/petugas/dashboard` (selain admin).
+- Role tidak sesuai path → redirect `/admin/dashboard` (jika role admin) atau
+  `/petugas/dashboard` (selain admin).
 
 ### Requirement: Session dapat dipalsukan
 
@@ -48,4 +49,4 @@ admin penuh. DILARANG mengklaim mekanisme ini aman.
 
 ### Requirement: Logout
 
-Logout HARUS `localStorage.removeItem("user_session")` lalu redirect `/login`.
+Logout HARUS `clearSession()` (hapus `user_session`) lalu redirect `/login`.
