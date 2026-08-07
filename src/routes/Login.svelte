@@ -83,7 +83,7 @@
 				</Button>
 			</form>
 			<p class="mt-8 text-center text-xs text-muted-foreground">
-				&copy; 2026 Ujikom SMKN 1 Sumedang
+				&copy; 2026 Kantor Kelurahan Desa Talun
 			</p>
 		</CardContent>
 	</Card>

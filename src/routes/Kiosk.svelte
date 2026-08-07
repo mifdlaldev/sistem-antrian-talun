@@ -218,6 +218,6 @@
 
 	<div class="flex items-center justify-center gap-2 border-t border-border pb-6 pt-6 text-xs text-muted-foreground">
 		<Building2 class="size-3.5" />
-		<span>&copy; 2026 Ujikom SMKN 1 Sumedang</span>
+		<span>&copy; 2026 Kantor Kelurahan Desa Talun</span>
 	</div>
 </div>
