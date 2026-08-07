@@ -27,30 +27,28 @@ IN SCOPE:
 
 OUT OF SCOPE / TIDAK ADA (jangan diklaim ada):
 
-- Backend server. Frontend-only SPA — semua query Supabase dari browser.
-- Supabase Auth. Tidak dipakai; session berbasis localStorage.
+- Backend server terpisah. SPA + API di SATU Cloudflare Worker.
+- Supabase. Telah dimigrasi ke Cloudflare D1 + Durable Objects.
 - Print struk. Belum terimplementasi — popup hanya placeholder.
-- Tests dan CI. Tidak ada test runner, tidak ada workflow.
-- Migrasi SQL. Skema hanya ada di dashboard Supabase, tidak di repo.
-- Koneksi Supabase tidak dapat diverifikasi dari repo (butuh RLS di dashboard).
+- CI. Tidak ada workflow GitHub Actions.
+- Deploy ke Cloudflare. Kode siap, deploy butuh `wrangler login` + langkah di README.
 
 ## Constraints
 
 - **Frontend:** Svelte 5 (runes), Vite 8, TypeScript strict + `noUncheckedIndexedAccess`,
   Tailwind CSS v4 (CSS-first via `@theme`), shadcn-svelte (bits-ui) untuk UI,
   `@lucide/svelte` untuk ikon, `svelte-sonner` untuk toast.
-- **Backend:** Supabase (PostgreSQL + Realtime) diakses langsung dari browser via
-  anon key — menggunakan `@supabase/postgrest-js` + `@supabase/realtime-js`
-  (BUKAN `@supabase/supabase-js`).
-- **Validasi:** Valibot (`src/lib/schemas.ts`) — schema inference + runtime validation.
-- **Kualitas:** svelte-check 0 error/0 warning, Biome lint+format (`.ts/.js/.json`),
-  Vitest untuk logika murni, Husky + lint-staged pre-commit.
-- **Deploy:** Vercel dengan SPA rewrite (`vercel.json`).
+- **Backend:** Cloudflare Workers (Hono) + D1 (SQLite) + Durable Objects (realtime hub).
+  Semua akses DB server-side via binding; browser tidak menyentuh DB.
+- **Validasi:** Valibot (`src/lib/schemas.ts`, `worker/src/routes/*`) — schema
+  inference + runtime validation di boundary (request body di Worker, respons di client).
+- **Kualitas:** svelte-check 0 error/0 warning + `tsc -p tsconfig.worker.json`,
+  Biome lint+format (`.ts/.js/.json`), Vitest, Husky + lint-staged pre-commit.
+- **Deploy:** `wrangler deploy` (config `wrangler.jsonc` — assets dist/ + API).
 - **Bahasa:** Indonesia untuk UI, komentar, dan nama variabel.
-- **Keamanan (terdokumentasi, jangan disembunyikan):** password plaintext, session
-  localStorage forgeable, join `users(*)` di halaman publik. Lihat `capabilities` dan
-  `contracts` terkait.
-- **Nomor antrian:** count-then-insert non-atomic — duplikat mungkin saat konkurensi.
+- **Keamanan:** password PBKDF2 server-side, session cookie httpOnly HMAC-signed,
+  DB hanya diakses Worker. Jangan turunkan level ini tanpa persetujuan.
+- **Nomor antrian:** insert atomik single-statement di Worker — race-safe.
 
 ## Conventions
 
@@ -61,14 +59,15 @@ OUT OF SCOPE / TIDAK ADA (jangan diklaim ada):
   `text-foreground`, dll. dari `src/app.css`).
 - UI: shadcn-svelte di `src/lib/components/ui/`. Modal pakai `Dialog`/`AlertDialog`,
   toast `svelte-sonner`, ikon `@lucide/svelte/icons`. DILARANG reintroduce SweetAlert.
-- Validasi: Valibot schema di `src/lib/schemas.ts`, divalidasi di boundary
-  (respons Supabase, session localStorage).
-- State/data: runes + `onMount` + panggilan `PostgrestClient` langsung. Tanpa state
-  manager, tanpa library data-fetching.
+- Worker: Hono + TypeScript strict, route per-domain di `worker/src/routes/`,
+  validasi body dengan Valibot.
+- State/data: runes + `onMount` + `api.get/post/put/delete` (`$lib/api.ts`). Tanpa
+  state manager, tanpa library data-fetching.
+- Realtime: `subscribeAntrian(cb)` (`$lib/realtime.ts`) — WebSocket ke Durable Object.
 - Router: custom path-based di `App.svelte` (`resolveTarget` + `navigate()`),
   bukan SvelteKit.
 - Tanggal: `Intl.DateTimeFormat` locale `id-ID`. Kolom `tanggal` disimpan sebagai
-  string ISO UTC `YYYY-MM-DD` via `todayIso()`.
+  string ISO UTC `YYYY-MM-DD` via `todayIso()` (`worker/src/queue.ts`).
 
 ## Glossary
 

@@ -32,8 +32,11 @@ Dibangun sebagai proyek **Ujikom SMKN 1 Sumedang 2026**.
 | TypeScript | Strict mode + `noUncheckedIndexedAccess` |
 | Tailwind CSS v4 | Styling (konfigurasi CSS-first via `@theme`) |
 | shadcn-svelte | Komponen UI (dibangun di atas bits-ui / Melt UI) |
-| Supabase | Backend: PostgreSQL + Realtime, via `postgrest-js` + `realtime-js` (tanpa `supabase-js` monolitik) |
-| Valibot | Validasi runtime + inferensi skema |
+| Cloudflare Workers | Runtime API (Hono) + static assets, satu Worker |
+| Hono | Framework API di Worker (routing, middleware) |
+| D1 (SQLite) | Database — diakses hanya server-side via binding |
+| Durable Objects | Realtime hub (WebSocket pub/sub) |
+| Valibot | Validasi runtime + inferensi skema (client + worker) |
 | Biome | Lint + format (Rust, sangat cepat) |
 | Vitest | Unit tests |
 | svelte-sonner | Toast notification |
@@ -43,44 +46,52 @@ Dibangun sebagai proyek **Ujikom SMKN 1 Sumedang 2026**.
 ## Persyaratan
 
 - Node.js (npm) — versi yang mendukung Vite 8
-- Proyek Supabase dengan tabel `layanan`, `antrian`, dan `users` (lihat [Skema Database](#skema-database))
+- Akun Cloudflare (untuk deploy; dev lokal tanpa akun)
 
 ## Cara Menjalankan
 
 ```bash
-npm install        # install dependencies
-npm run dev        # jalankan dev server (Vite)
-npm run build      # build produksi (output: dist/)
-npm run preview    # preview hasil build
-npm run check      # type-check (svelte-check + tsc)
-npm test           # jalankan unit test (Vitest)
-npm run lint       # biome check
-npm run lint:fix   # biome check --write
-npm run format     # biome format --write
+npm install            # install dependencies
+npm run dev            # frontend saja (Vite dev server)
+npm run dev:worker     # full stack: Worker + D1 + DO + assets (wrangler dev --local)
+npm run db:migrate:local  # apply migrasi D1 ke database lokal
+npm run build          # build produksi frontend (output: dist/)
+npm run check          # type-check (svelte-check + tsc app + tsc worker)
+npm test               # jalankan unit test (Vitest)
+npm run lint           # biome check
+npm run lint:fix       # biome check --write
+npm run format         # biome format --write
 ```
 
 ## Quality Gates
 
 Proyek ini menerapkan standar ketat ("sangat ringan, sangat ketat, sangat cepat"):
 
-- **Type-check:** `svelte-check` (TS strict) harus 0 error, 0 warning.
+- **Type-check:** `svelte-check` (TS strict) + `tsc -p tsconfig.worker.json` — 0 error,
+  0 warning.
 - **Lint + format:** Biome (untuk `.ts/.js/.json`; `.svelte`/`.css` ditangani
   svelte-check/Tailwind).
-- **Test:** Vitest untuk logika murni (`src/lib/queue.test.ts`).
+- **Test:** Vitest untuk logika murni (`worker/src/queue.test.ts`, `src/lib/schemas.ts`).
 - **Pre-commit:** Husky + lint-staged menjalankan `biome check --write` otomatis.
-- **Bundle:** ~348 KB min / ~104 KB gzip JS (tanpa React, tanpa recharts, tanpa
-  SweetAlert).
+- **Bundle:** ~274 KB min / ~83 KB gzip JS.
+- **Keamanan:** DB hanya diakses Worker, session cookie httpOnly HMAC-signed, password
+  PBKDF2 (bukan plaintext).
 
 ## Konfigurasi Environment
 
-Buat file `.env` di root proyek (jangan di-commit ke git):
+Lokal: buat file `.dev.vars` di root (gitignored, sudah ada):
 
 ```
-VITE_SUPABASE_URL=your_supabase_project_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+SESSION_SECRET=secret_acak_yang_panjang
 ```
 
-Kedua variabel dibaca di `src/lib/supabaseClient.js`.
+Produksi: set sebagai secret Cloudflare:
+
+```bash
+npx wrangler secret put SESSION_SECRET
+```
+
+Tidak ada variabel `VITE_*` — frontend berkomunikasi dengan API same-origin (`/api/*`).
 
 ## Skema Database
 
@@ -114,11 +125,14 @@ Kedua variabel dibaca di `src/lib/supabaseClient.js`.
 | Kolom | Keterangan |
 |---|---|
 | `id_user` | PK, int |
-| `username` | text |
-| `password` | text (lihat [Catatan Keamanan](#catatan-keamanan)) |
+| `username` | text, UNIQUE |
+| `password_hash` | text — **PBKDF2-SHA256, bukan plaintext** |
 | `nama_lengkap` | text |
 | `role` | text: `admin` / `petugas` |
 | `id_layanan` | FK → `layanan.id_layanan`, nullable; `null` = petugas umum (semua layanan) |
+
+> Skema otoritatif ada di `worker/migrations/0001_init.sql` + `0002_seed.sql`.
+> Seed: `admin`/`admin123`, `petugas1`/`petugas123` — **WAJIB diganti sebelum produksi**.
 
 ## Routing
 
@@ -140,6 +154,9 @@ Kedua variabel dibaca di `src/lib/supabaseClient.js`.
 │   └── spec/
 │       ├── capabilities/   # queue-taking, queue-monitoring, queue-calling, authentication, admin-management
 │       └── contracts/      # database-schema, session
+├── worker/              # Cloudflare Worker (Hono + D1 + DO realtime)
+│   ├── migrations/      #   Skema D1 (0001_init, 0002_seed)
+│   └── src/             #   index.ts, auth.ts, realtime.ts, routes/
 ├── public/
 │   ├── logoinsunmedal.png
 │   └── kantorlurahtalun.jpg
@@ -148,12 +165,11 @@ Kedua variabel dibaca di `src/lib/supabaseClient.js`.
     ├── App.svelte           # SPA router custom + guard role + Toaster
     ├── app.css              # Tailwind v4 + tokens tema shadcn
     ├── lib/
-    │   ├── supabaseClient.ts    # PostgrestClient + RealtimeClient + subscribeAntrian()
+    │   ├── api.ts               # Fetch wrapper (GET/POST/PUT/DELETE)
+    │   ├── realtime.ts          # subscribeAntrian() — WebSocket + auto-reconnect
     │   ├── schemas.ts           # Skema Valibot (layanan, antrian, users)
-    │   ├── queue.ts             # todayIso(), buildNomorAntrian()
-    │   ├── session.ts           # Session localStorage (get/set/clear)
+    │   ├── session.ts           # getCurrentUser/login/logout (cookie httpOnly)
     │   ├── router.ts            # navigate() (pushState + popstate)
-    │   ├── queue.test.ts        # Unit test Vitest
     │   ├── components/
     │   │   ├── BarChart.svelte  # Chart SVG zero-dependency
     │   │   └── ui/              # Komponen shadcn-svelte (button, card, dialog, dll)
@@ -175,54 +191,57 @@ saat ini — ditulis agar AI agent (dan manusia) tidak berhalusinasi:
   pemanggilan, autentikasi, manajemen admin
 - `openspec/spec/contracts/` — kontrak data: skema database (inferred) dan session
 
-Setiap fakta di sana terverifikasi dari source code. Skema database ditandai **inferred**
-karena tidak ada migrasi SQL di repo ini.
+Setiap fakta di sana terverifikasi dari source code. Skema database bersumber dari
+migrasi D1 (`worker/migrations/`).
 
-## Deployment (Vercel)
+## Deployment (Cloudflare Workers)
 
-Proyek di-deploy ke Vercel sebagai SPA. File `vercel.json` berisi rewrite semua route
-ke `/index.html`:
+Frontend (dist/) dan API (Worker) di-deploy menjadi **satu Worker** via `wrangler deploy`
+— config ada di `wrangler.jsonc` (D1 + Durable Objects + static assets).
 
-```json
-{
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
-  ]
-}
+Langkah deploy pertama (butuh akun Cloudflare):
+
+```bash
+npx wrangler login                          # login ke akun Cloudflare
+npx wrangler d1 create website-antrian-kelurahan-talun   # buat database D1
+# salin database_id hasil di atas ke wrangler.jsonc (ganti placeholder all-zero)
+npx wrangler secret put SESSION_SECRET      # secret untuk menandatangani cookie
+npx wrangler d1 migrations apply website-antrian-kelurahan-talun --remote  # migrasi + seed
+npm run deploy                              # build frontend + wrangler deploy
 ```
 
-Setel environment variable `VITE_SUPABASE_URL` dan `VITE_SUPABASE_ANON_KEY` di
-pengaturan proyek Vercel sebelum build.
+Setelah deploy: ganti password default seed (`admin`/`admin123`,
+`petugas1`/`petugas123`) via dashboard admin, dan set custom domain jika perlu.
 
 ## Status & Batasan yang Diketahui
 
 - **Belum ada CI/CD configuration** di repository (kualitas dicek via script lokal:
   `npm run check`, `npm test`, `npm run lint`).
+- **Belum di-deploy ke Cloudflare** — butuh `wrangler login` + langkah deploy di atas.
+- **Realtime** (Durable Object WebSocket) teruji lokal (`wrangler dev`), belum teruji di
+  edge.
 - **Print struk belum berfungsi** — Kiosk menampilkan "Sedang mencetak struk..." namun
-  tidak ada implementasi pencetakan nyata (komponen `StrukAntrian` React dihapus saat
-  migrasi).
-- **Nomor antrian bisa dobel** saat dua permintaan bersamaan (count-then-insert
-  non-atomic).
+  tidak ada implementasi pencetakan nyata.
 - **Komponen UI belum diuji** — test Vitest hanya mencakup logika murni
-  (`queue.ts`, `schemas.ts`).
+  (`worker/src/queue.test.ts`, `src/lib/schemas.ts`).
+- **Seed credentials default** — wajib diganti sebelum produksi.
+- **`tanggal` pakai UTC ISO** — bisa beda hari dengan WIB sekitar tengah malam.
 
 ## Catatan Keamanan
 
-Proyek ini dibuat untuk keperluan uji kompetensi dan **memiliki beberapa kelemahan
-keamanan yang sudah diketahui**:
+Migrasi dari Supabase ke Cloudflare **memperbaiki kerentanan lama**:
 
-1. **Password tersimpan plaintext** dan dicek langsung dari browser
-   (query `.eq("password", ...)` di client).
-2. **Session menggunakan localStorage** yang mudah dipalsukan — tidak menggunakan
-   Supabase Auth.
-3. **Halaman Monitor publik** men-select semua kolom `users` (termasuk `password`)
-   lewat join.
-4. **Semua operasi data dari client memakai anon key** — keamanan bergantung penuh
-   pada Row Level Security (RLS) di Supabase.
-5. **`.env` pernah ter-commit** ke GitHub (anon key terekspos). Jangan commit ulang.
-6. **Risiko stored XSS** pada modal SweetAlert (nilai input tidak di-escape).
+| Kerentanan lama (Supabase) | Status sekarang |
+|---|---|
+| Password plaintext + dicek di browser | ✅ PBKDF2-SHA256 server-side (Worker) |
+| Session localStorage forgeable | ✅ Cookie httpOnly + HMAC-signed |
+| Monitor publik bocorkan `users.password` | ✅ Server-side projection, password tak pernah dikirim |
+| Anon key publik + akses DB dari browser | ✅ DB hanya diakses Worker (binding D1) |
+| Stored XSS (SweetAlert `html:`) | ✅ Svelte escape otomatis |
 
-Jangan mengubah hal di atas secara diam-diam; laporkan dan diskusikan dulu.
+Yang tetap perlu diperhatikan: default credentials seed, kekuatan/rotasi
+`SESSION_SECRET`, batas free tier (D1 5 GB, DO 1M request/bulan, Workers 100K
+request/hari). Jangan menurunkan level keamanan ini tanpa persetujuan.
 
 ## Lisensi
 

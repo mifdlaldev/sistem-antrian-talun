@@ -6,8 +6,8 @@ title: Manajemen Admin (Dashboard & CRUD)
 ## Description
 
 Halaman `/admin/dashboard` (role `admin`). Menampilkan statistik harian + grafik
-(Recharts), CRUD tabel `layanan`, dan CRUD tabel `users` (petugas) — semua interaksi
-form via modal SweetAlert.
+(bar chart SVG zero-dependency), CRUD tabel `layanan`, dan CRUD tabel `users`
+(petugas) — semua interaksi form via shadcn `Dialog`/`AlertDialog`.
 
 ## Scenario
 
@@ -19,7 +19,7 @@ data petugas → menghapus layanan yang tidak lagi dipakai.
 ### Requirement: Statistik harian
 
 Tab `home` HARUS menampilkan jumlah antrian hari ini (`tanggal = today`): total,
-`menunggu`, dan `selesai` (count queries `head: true`).
+`menunggu`, dan `selesai` — dari `GET /api/stats/dashboard` (role admin).
 
 ### Requirement: Grafik
 
@@ -28,25 +28,25 @@ layanan hari ini — **zero-dependency SVG** (`BarChart.svelte`), bukan recharts
 
 ### Requirement: CRUD layanan
 
-Insert/update/delete tabel `layanan` via shadcn `Dialog`:
+CRUD via API admin-only (`POST/PUT/DELETE /api/layanan`) dengan shadcn `Dialog`:
 - Tambah: `nama_layanan` + `kode_huruf` wajib, `deskripsi` opsional.
 - Edit: form diisi nilai saat ini.
-- Hapus: ditolak oleh Supabase jika layanan masih punya baris `antrian` (FK) —
+- Hapus: ditolak Worker (409) jika layanan masih punya baris `antrian` (FK) —
   pesan error ditampilkan via toast.
 
 ### Requirement: CRUD petugas (users)
 
-Insert/update/delete tabel `users` via shadcn `Dialog`:
+CRUD via API admin-only (`/api/users`) dengan shadcn `Dialog`:
 - Tambah user HARUS hardcode `role: "petugas"`; `id_layanan` dari `NativeSelect`
   (kosong = `null` = general).
-- Password disimpan **plaintext**.
+- Password di-hash **PBKDF2 server-side** (`hashPassword` di Worker).
 - Edit: password hanya di-update jika admin mengisi kolom password baru.
 - Hapus: konfirmasi `AlertDialog`, lalu delete.
 
 ### Requirement: Data join layanan
 
-Daftar petugas HARUS diambil dengan join nama layanan
-(`.select("*, layanan(nama_layanan)")`).
+Daftar petugas HARUS diambil dari `GET /api/users` (Worker melakukan
+`LEFT JOIN layanan` untuk nama layanan tugas).
 
 ### Requirement: Risiko stored XSS (jangan ditiru)
 

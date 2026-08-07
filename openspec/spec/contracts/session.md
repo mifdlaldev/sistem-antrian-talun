@@ -1,45 +1,35 @@
 ---
 id: session
-title: Session LocalStorage
+title: Session Cookie (httpOnly, HMAC-signed)
 ---
 
 ## Description
 
-Session login disimpan di browser localStorage. Bukan sesi aman — dapat dipalsukan
-tanpa verifikasi server. Tidak menggunakan Supabase Auth.
+Session login dikelola **server-side di Worker** — cookie `session` httpOnly,
+SameSite=Lax, Secure (produksi), berdurasi 12 jam. Browser tidak bisa membaca atau
+memalsukan session.
 
-## Storage
+## Cookie
 
-### Key: `user_session`
+### Name: `session`
 
-- **Tipe:** JSON string dari **seluruh row** tabel `users`.
-- **Di-set oleh:** `Login.svelte` → `handleLogin` via `setSession(user)`
-  (`src/lib/session.ts`).
-- **Dibaca oleh:** `App.svelte` → `resolveTarget` via `getSession()`, dan
-  `PetugasDashboard.svelte` (identitas petugas).
-- **Dihapus oleh:** `clearSession()` di logout (Petugas/Admin dashboard).
-
-## Payload
-
-Seluruh field dari row tabel `users`:
-
-| Field | Contoh |
-|---|---|
-| `id_user` | 2 |
-| `username` | "petugas1" |
-| `password` | "rahasia" (plaintext) |
-| `nama_lengkap` | "Budi Santoso" |
-| `role` | "petugas" / "admin" |
-| `id_layanan` | 1 atau `null` (general) |
+- **Isi:** `base64url(payload).base64url(HMAC-SHA256(secret, payload))`
+- **Payload:** `{ id_user, role, exp }` (exp = epoch detik, 12 jam).
+- **Ditandatangani** dengan `SESSION_SECRET` (HMAC-SHA256, constant-time compare).
+- **Di-set oleh:** `POST /api/auth/login` (setelah verifikasi PBKDF2).
+- **Dihapus oleh:** `POST /api/auth/logout`.
+- **Dibaca oleh:** `GET /api/auth/me`, guard rute (`App.svelte`), endpoint admin/petugas.
 
 ## Keamanan
 
-Session ini HARUS dianggap forgeable:
+- Cookie **httpOnly** — tidak bisa dibaca JS (anti-XSS token theft).
+- **Signature server-side** — tidak bisa dipalsukan dari client.
+- **Expiry 12 jam** — diperiksa saat verifikasi.
+- TIDAK menggunakan localStorage, TIDAK ada token di JS.
+- DILARANG mengklaim ini bisa diganti dengan session client-side.
 
-```js
-localStorage.setItem("user_session", JSON.stringify({ role: "admin" }));
-```
+## API Terkait
 
-- Tidak ada expiry, tidak ada token, tidak ada validasi server-side.
-- Guard hanya memeriksa keberadaan key + nilai `role`.
-- DILARANG mengklaim mekanisme ini aman atau setara Supabase Auth.
+- `POST /api/auth/login` → `{ id_user, username, nama_lengkap, role, id_layanan }`
+- `POST /api/auth/logout` → `{ ok: true }`
+- `GET /api/auth/me` → user row (tanpa `password_hash`) atau 401

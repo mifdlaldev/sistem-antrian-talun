@@ -5,29 +5,31 @@ title: Autentikasi (Login & Guard Rute)
 
 ## Description
 
-Login username/password di `/login`. Session disimpan di browser `localStorage`.
-Guard rute via `ProtectedRoute` berdasarkan role. **TIDAK menggunakan Supabase Auth**
-— tidak ada token, tidak ada expiry, tidak ada session server-side.
+Login username/password di `/login`, diverifikasi **server-side di Worker**
+(`POST /api/auth/login`). Password disimpan sebagai hash **PBKDF2-SHA256**. Session
+berupa **cookie httpOnly** yang ditandatangani HMAC-SHA256 dengan `SESSION_SECRET`.
+Guard rute di `App.svelte` mem-fetch `GET /api/auth/me`.
 
 ## Scenario
 
-Petugas memasukkan username & password → query tabel `users` mencocokkan keduanya →
-seluruh row user disimpan ke localStorage → redirect sesuai role. Admin mencoba buka
-`/petugas/dashboard` → ditolak, redirect ke dashboard yang sesuai.
+Petugas memasukkan username & password → Worker query `users` by username → verifikasi
+PBKDF2 (constant-time) → set cookie `session` (12 jam) → frontend redirect sesuai role.
+Admin mencoba buka `/petugas/dashboard` → `GET /api/auth/me` mengembalikan role admin →
+redirect ke dashboard yang sesuai.
 
 ## Requirements
 
 ### Requirement: Verifikasi kredensial
 
-Login HARUS query
-`supabase.from("users").select("*").eq("username", u).eq("password", p).single()` —
-perbandingan **plaintext** dilakukan client-side. Password tersimpan plaintext di
-tabel `users`. Ini kerentanan terdokumentasi; jangan klaim aman.
+`POST /api/auth/login` HARUS query `users` by username, lalu `verifyPassword`
+(PBKDF2-SHA256, 100.000 iterasi, constant-time compare). Gagal → 401
+"Username atau Password salah!".
 
-### Requirement: Penyimpanan session
+### Requirement: Cookie session
 
-Login sukses HARUS menyimpan **seluruh row user** ke `localStorage["user_session"]`
-sebagai JSON string (via `setSession` dari `$lib/session`).
+Login sukses HARUS men-set cookie `session` dengan payload
+`{ id_user, role, exp }` (12 jam) yang di-HMAC-SHA256(`SESSION_SECRET`):
+httpOnly, SameSite=Lax, Secure (produksi).
 
 ### Requirement: Redirect sesuai role
 
@@ -35,18 +37,17 @@ sebagai JSON string (via `setSession` dari `$lib/session`).
 
 ### Requirement: Guard rute
 
-`App.svelte` → `resolveTarget(path)` HARUS membaca session via `getSession()`
-(`localStorage["user_session"]`, divalidasi Valibot):
-- Tidak ada session → redirect `/login`.
-- Role tidak sesuai path → redirect `/admin/dashboard` (jika role admin) atau
-  `/petugas/dashboard` (selain admin).
+`App.svelte` HARUS mem-fetch `GET /api/auth/me` pada setiap perubahan path
+(cookie dikirim otomatis):
+- 401 (tidak ada session) → redirect `/login`.
+- Role tidak sesuai path → redirect `/admin/dashboard` (admin) atau
+  `/petugas/dashboard` (petugas).
 
-### Requirement: Session dapat dipalsukan
+### Requirement: Session tidak forgeable
 
-Guard tidak melakukan verifikasi apa pun selain keberadaan + role di localStorage.
-`localStorage.setItem("user_session", JSON.stringify({ role: "admin" }))` memberi akses
-admin penuh. DILARANG mengklaim mekanisme ini aman.
+Cookie httpOnly + signature server-side — browser tidak bisa membaca atau memalsukan
+session. DILARANG mengklaim mekanisme ini bisa diganti session client-side.
 
 ### Requirement: Logout
 
-Logout HARUS `clearSession()` (hapus `user_session`) lalu redirect `/login`.
+`POST /api/auth/logout` HARUS menghapus cookie, lalu frontend redirect `/login`.

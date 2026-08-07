@@ -18,28 +18,29 @@ realtime.
 
 ## Requirements
 
-### Requirement: Identitas petugas dari localStorage
+### Requirement: Identitas petugas dari session cookie
 
-Petugas HARUS dibaca dari `localStorage["user_session"]` saat halaman dimuat
+Petugas HARUS didapat dari `GET /api/auth/me` (cookie httpOnly) saat halaman dimuat
 (`id_user`, `nama_lengkap`, `id_layanan`). Jika tidak ada session → redirect `/login`.
-CATATAN: session berbasis localStorage dan forgeable — kerentanan terdokumentasi.
 
 ### Requirement: Nama penugasan layanan
 
-Dashboard HARUS menampilkan nama layanan tugas: jika `id_layanan` terisi → nama layanan
-tersebut; jika `null` → "SEMUA LAYANAN".
+Dashboard HARUS menampilkan nama layanan tugas dari `GET /api/antrian/petugas`:
+jika `id_layanan` terisi → nama layanan tersebut; jika `null` → "SEMUA LAYANAN".
 
 ### Requirement: Selesaikan antrian aktif
 
-Jika ada baris `antrian` ber-`status: "dilayani"` dengan `id_user` = petugas ini, sistem
-HARUS set `status: "selesai"` dan `waktu_selesai: new Date()`.
+`POST /api/antrian/next` (Worker, role petugas): jika ada baris `antrian`
+ber-`status: "dilayani"` dengan `id_user` = petugas ini, set `status: "selesai"` dan
+`waktu_selesai`.
 
 ### Requirement: Panggil antrian berikutnya
 
-Sistem HARUS mengambil baris `menunggu` hari ini urut `id_antrian` ASC, limit 1.
+Worker HARUS mengambil baris `menunggu` hari ini urut `id_antrian` ASC, limit 1.
 Jika petugas spesialis (`id_layanan` tidak null) → filter `id_layanan` sama dengan
 penugasan. Jika petugas general (`id_layanan` null) → tanpa filter layanan. Baris
-terpilih HARUS diset `status: "dilayani"` dan `id_user: petugas.id`.
+terpilih diset `status: "dilayani"` dan `id_user` petugas, lalu broadcast realtime.
+Response: `{ next }` atau `{ next: null }`.
 
 ### Requirement: Notifikasi
 
@@ -48,6 +49,6 @@ Tidak ada antrian → toast info "Antrian Kosong".
 
 ### Requirement: Langganan realtime
 
-Dashboard HARUS subscribe via `subscribeAntrian("dashboard-petugas", cb)` dan
-mem-fetch ulang statistik (sisa antrian, total selesai) pada setiap perubahan.
+Dashboard HARUS subscribe via `subscribeAntrian(cb)` (WebSocket ke Durable Object) dan
+mem-fetch ulang statistik (sisa antrian, total selesai) pada setiap event.
 Unsubscribe HARUS dipanggil saat unmount.

@@ -1,52 +1,58 @@
 ---
 id: database-schema
-title: Skema Database Supabase
+title: Skema Database D1 (Cloudflare)
 ---
 
 ## Description
 
-Skema tabel Supabase (PostgreSQL, schema `public`) yang digunakan aplikasi.
-**INFERRED dari query Supabase di source code — tidak ada migrasi SQL di repository
-ini.** Untuk skema otoritatif, periksa langsung di dashboard Supabase project.
+Skema database **Cloudflare D1** (SQLite) — definisi otoritatif di
+`worker/migrations/0001_init.sql` (skema) dan `0002_seed.sql` (seed). Semua akses
+database hanya terjadi **server-side di Worker** (binding `DB`); browser tidak pernah
+menyentuh DB langsung.
 
 ## Table: layanan
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `id_layanan` | int | ya | Primary key, diurutkan ascending |
-| `nama_layanan` | text | ya | Contoh: "Layanan KTP & KK" |
-| `kode_huruf` | text | ya | Satu huruf (contoh "A") — prefix nomor antrian |
-| `deskripsi` | text | tidak | Opsional |
+| `id_layanan` | INTEGER | ya | Primary key AUTOINCREMENT |
+| `nama_layanan` | TEXT | ya | Contoh: "Layanan KTP & KK" |
+| `kode_huruf` | TEXT | ya | Satu huruf (contoh "A") — prefix nomor antrian |
+| `deskripsi` | TEXT | tidak | Opsional |
 
 ## Table: antrian
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `id_antrian` | int | ya | Primary key, urutan FIFO |
-| `nomor_antrian` | text | ya | Format `KODE-001` (contoh `A-001`) |
-| `id_layanan` | int | ya | Foreign key → `layanan.id_layanan` |
-| `id_user` | int | tidak | Foreign key → `users.id_user`; diisi petugas yang melayani |
-| `status` | text | ya | `menunggu` \| `dilayani` \| `selesai` |
-| `tanggal` | date | ya | String ISO `YYYY-MM-DD` (UTC) |
-| `waktu_selesai` | timestamp | tidak | Diisi saat status → `selesai` |
+| `id_antrian` | INTEGER | ya | Primary key AUTOINCREMENT, urutan FIFO |
+| `nomor_antrian` | TEXT | ya | Format `KODE-001` (contoh `A-001`) |
+| `id_layanan` | INTEGER | ya | Foreign key → `layanan.id_layanan` |
+| `id_user` | INTEGER | tidak | FK → `users.id_user`; diisi petugas yang melayani |
+| `status` | TEXT | ya | `menunggu` \| `dilayani` \| `selesai` (CHECK) |
+| `tanggal` | TEXT | ya | ISO `YYYY-MM-DD` (UTC) |
+| `waktu_selesai` | TEXT | tidak | ISO timestamp, diisi saat status → `selesai` |
+
+Index: `antrian(tanggal)`, `antrian(status)`, `antrian(id_layanan, tanggal)`.
 
 ## Table: users
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `id_user` | int | ya | Primary key |
-| `username` | text | ya | |
-| `password` | text | ya | **PLAINTEXT** — jangan klaim ter-hash |
-| `nama_lengkap` | text | ya | |
-| `role` | text | ya | `admin` \| `petugas` |
-| `id_layanan` | int | tidak | FK → `layanan.id_layanan`; `null` = petugas general |
+| `id_user` | INTEGER | ya | Primary key AUTOINCREMENT |
+| `username` | TEXT | ya | UNIQUE |
+| `password_hash` | TEXT | ya | **PBKDF2-SHA256** format `pbkdf2:sha256:iterasi:salt:hash` |
+| `nama_lengkap` | TEXT | ya | |
+| `role` | TEXT | ya | `admin` \| `petugas` (CHECK) |
+| `id_layanan` | INTEGER | tidak | FK → `layanan.id_layanan`; `null` = petugas general |
 
-## Catatan Referensi Query
+## Seed (`0002_seed.sql`)
 
-- `Monitor.svelte`: `.select("*, layanan(*), users(*)")` — join `users(*)` mengembalikan
-  semua kolom `users` (termasuk `password`) ke halaman publik.
-- `AdminDashboard.svelte`: `.select("*, layanan(nama_layanan)")` untuk daftar petugas.
-- `Kiosk.svelte`: insert antrian dengan `id_layanan`, `nomor_antrian`, `status`,
-  `tanggal` — tanpa `id_user` (diisi belakangan oleh petugas).
-- Client query: `@supabase/postgrest-js` (`PostgrestClient`), realtime via
-  `@supabase/realtime-js` (`subscribeAntrian`).
+`admin`/`admin123` (role admin), `petugas1`/`petugas123` (petugas, layanan A).
+**Default credentials — WAJIB diganti setelah deploy.**
+
+## Catatan Query (Worker)
+
+- `POST /api/antrian`: insert **atomik satu statement** (`INSERT ... SELECT` dengan
+  `MAX(SUBSTR(nomor_antrian, 3))`) — tanpa race condition.
+- `GET /api/antrian/display`: join `layanan` + `users` — hanya kolom yang dipilih
+  (projection server-side, password_hash tidak pernah dikirim).
+- `GET /api/users`: `LEFT JOIN layanan` untuk nama layanan tugas.

@@ -11,34 +11,34 @@ menampilkan nomor dalam popup SweetAlert.
 
 ## Scenario
 
-Pengunjung membuka halaman utama → daftar layanan dimuat dari Supabase → menekan tombol
+Pengunjung membuka halaman utama → daftar layanan dimuat dari API → menekan tombol
 layanan → sistem menghitung antrian hari ini untuk layanan itu → membuat nomor baru
 (format `KODE-001`) → menyimpan ke tabel `antrian` → menampilkan popup "Berhasil".
 
 ## Requirements
 
-### Requirement: Daftar layanan dimuat dari Supabase
+### Requirement: Daftar layanan dimuat dari API
 
 Kiosk HARUS memuat semua baris `layanan` urut `id_layanan` ascending saat halaman
-dibuka (`onMount` + `supabase.from("layanan").select("*").order("id_layanan")`).
-Loading state ditampilkan selama fetch.
+dibuka (`onMount` + `api.get('/api/layanan')`). Loading state ditampilkan selama fetch.
 
-### Requirement: Penghitungan nomor antrian per hari per layanan
+### Requirement: Penghitungan nomor antrian (server-side, atomik)
 
-Sistem HARUS menghitung jumlah baris `antrian` hari ini untuk layanan terpilih
-(`.eq("id_layanan", X).gte("tanggal", today)`) lalu `urutan = count + 1`.
-Ini count-then-insert **non-atomic** — nomor dobel mungkin terjadi saat dua permintaan
-bersamaan. DILARANG mengklaim race-safe.
+Nomor antrian HARUS dihitung **di Worker** (`POST /api/antrian`) dengan **insert atomik
+satu statement** — nomor diambil dari `MAX(SUBSTR(nomor_antrian, 3))` per
+layanan+tanggal dalam `INSERT ... SELECT`. **Race-safe** (perbaikan dari versi Supabase lama
+count-then-insert yang non-atomic).
 
 ### Requirement: Format nomor antrian
 
-Nomor HARUS berbentuk `${layanan.kode_huruf}-${String(urutan).padStart(3, "0")}`
-(contoh `A-001`).
+Nomor HARUS berbentuk `buildNomorAntrian(kode_huruf, urutan)` di `worker/src/queue.ts`
+→ `${kodeHuruf}-${String(urutan).padStart(3, "0")}` (contoh `A-001`).
 
 ### Requirement: Insert baris antrian
 
-Baris baru HARUS berisi `nomor_antrian`, `id_layanan`, `status: "menunggu"`,
-`tanggal: today` (string ISO `YYYY-MM-DD` dari `new Date().toISOString().split("T")[0]`).
+Worker HARUS menyimpan `nomor_antrian`, `id_layanan`, `status: "menunggu"`,
+`tanggal` (ISO `YYYY-MM-DD` UTC via `todayIso()`), lalu broadcast ke realtime hub.
+Response: `{ nomor_antrian, nama_layanan }`.
 
 ### Requirement: Popup hasil
 
