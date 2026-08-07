@@ -96,6 +96,9 @@ Node/package manager: npm. No test runner is configured.
 ├── vite.config.js             # Vite + React + Tailwind v4 plugin
 ├── eslint.config.js           # ESLint 9 flat config
 ├── vercel.json                # SPA rewrite: all routes → /index.html
+├── LICENSE                    # Apache License 2.0
+├── AGENTS.md                  # This file — agent guidelines (no hallucination)
+├── README.md                  # Project documentation (Indonesian)
 ├── public/
 │   ├── logoinsunmedal.png     # Logo (used in navbar/header)
 │   ├── kantorlurahtalun.jpg   # Office photo (Monitor display background)

@@ -181,4 +181,6 @@ Jangan mengubah hal di atas secara diam-diam; laporkan dan diskusikan dulu.
 
 ## Lisensi
 
-© 2026 — Proyek Ujikom SMKN 1 Sumedang. Digunakan untuk keperluan pendidikan.
+Proyek ini dilisensikan di bawah **Apache License 2.0** — lihat file [LICENSE](LICENSE).
+
+© 2026 — Proyek Ujikom SMKN 1 Sumedang.
