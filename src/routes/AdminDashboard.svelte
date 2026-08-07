@@ -1,429 +1,330 @@
 <script lang="ts">
-import {
-	Layers,
-	LayoutDashboard,
-	LogOut,
-	Menu,
-	Pencil,
-	Plus,
-	Trash2,
-	Users,
-} from "@lucide/svelte/icons";
-import { onMount } from "svelte";
-import { toast } from "svelte-sonner";
-import * as v from "valibot";
-import BarChart from "$lib/components/BarChart.svelte";
-import {
-	AlertDialog,
-	AlertDialogAction,
-	AlertDialogCancel,
-	AlertDialogContent,
-	AlertDialogDescription,
-	AlertDialogFooter,
-	AlertDialogHeader,
-	AlertDialogTitle,
-} from "$lib/components/ui/alert-dialog";
-import { Badge } from "$lib/components/ui/badge";
-import { Button } from "$lib/components/ui/button";
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from "$lib/components/ui/card";
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-} from "$lib/components/ui/dialog";
-import { Input } from "$lib/components/ui/input";
-import { Label } from "$lib/components/ui/label";
-import {
-	NativeSelect,
-	NativeSelectOption,
-} from "$lib/components/ui/native-select";
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "$lib/components/ui/table";
-import { todayIso } from "$lib/queue";
-import { navigate } from "$lib/router";
-import {
-	type Layanan,
-	LayananSchema,
-	type User,
-	UserSchema,
-} from "$lib/schemas";
-import { clearSession, getSession } from "$lib/session";
-import { supabase } from "$lib/supabaseClient";
+	import {
+		Layers,
+		LayoutDashboard,
+		LogOut,
+		Menu,
+		Pencil,
+		Plus,
+		Trash2,
+		Users,
+	} from '@lucide/svelte/icons';
+	import { onMount } from 'svelte';
+	import { toast } from 'svelte-sonner';
+	import * as v from 'valibot';
+	import BarChart from '$lib/components/BarChart.svelte';
+	import {
+		AlertDialog,
+		AlertDialogAction,
+		AlertDialogCancel,
+		AlertDialogContent,
+		AlertDialogDescription,
+		AlertDialogFooter,
+		AlertDialogHeader,
+		AlertDialogTitle,
+	} from '$lib/components/ui/alert-dialog';
+	import { Badge } from '$lib/components/ui/badge';
+	import { Button } from '$lib/components/ui/button';
+	import {
+		Card,
+		CardContent,
+		CardDescription,
+		CardHeader,
+		CardTitle,
+	} from '$lib/components/ui/card';
+	import {
+		Dialog,
+		DialogContent,
+		DialogDescription,
+		DialogFooter,
+		DialogHeader,
+		DialogTitle,
+	} from '$lib/components/ui/dialog';
+	import { Input } from '$lib/components/ui/input';
+	import { Label } from '$lib/components/ui/label';
+	import {
+		NativeSelect,
+		NativeSelectOption,
+	} from '$lib/components/ui/native-select';
+	import {
+		Table,
+		TableBody,
+		TableCell,
+		TableHead,
+		TableHeader,
+		TableRow,
+	} from '$lib/components/ui/table';
+	import { api } from '$lib/api';
+	import { navigate } from '$lib/router';
+	import { type Layanan, LayananSchema, type User } from '$lib/schemas';
+	import { getCurrentUser, logout } from '$lib/session';
 
-type UserRow = User & { layanan?: { nama_layanan: string } | null };
-type StatCard = { label: string; value: number; color: string };
-type WeeklyDatum = {
-	name: string;
-	date: string;
-	total: number;
-	selesai: number;
-};
-type LayananStat = { name: string; fullName: string; value: number };
-type LayananForm = {
-	open: boolean;
-	mode: "add" | "edit";
-	id: number | null;
-	nama: string;
-	kode: string;
-	desk: string;
-};
-type UserForm = {
-	open: boolean;
-	mode: "add" | "edit";
-	id: number | null;
-	username: string;
-	nama: string;
-	pass: string;
-	idLayanan: string;
-};
-type DeleteTarget = { type: "layanan" | "user"; id: number } | null;
-
-const COLORS = [
-	"#10b981",
-	"#f97316",
-	"#3b82f6",
-	"#8b5cf6",
-	"#ec4899",
-	"#06b6d4",
-];
-
-const session = getSession();
-let activeTab = $state<"home" | "layanan" | "users">("home");
-let isSidebarOpen = $state(false);
-
-let stats = $state({ total: 0, waiting: 0, completed: 0 });
-let dataLayanan = $state<Layanan[]>([]);
-let dataUsers = $state<UserRow[]>([]);
-let weeklyData = $state<WeeklyDatum[]>([]);
-let layananStats = $state<LayananStat[]>([]);
-
-let layananForm = $state<LayananForm>({
-	open: false,
-	mode: "add",
-	id: null,
-	nama: "",
-	kode: "",
-	desk: "",
-});
-let userForm = $state<UserForm>({
-	open: false,
-	mode: "add",
-	id: null,
-	username: "",
-	nama: "",
-	pass: "",
-	idLayanan: "",
-});
-let deleteTarget = $state<DeleteTarget>(null);
-
-onMount(() => {
-	if (!session) {
-		navigate("/login");
-		return;
-	}
-	fetchStats();
-	fetchWeeklyData();
-	fetchLayananStats();
-});
-
-async function fetchStats() {
-	const today = todayIso();
-	const { count: total } = await supabase
-		.from("antrian")
-		.select("*", { count: "exact", head: true })
-		.eq("tanggal", today);
-	const { count: waiting } = await supabase
-		.from("antrian")
-		.select("*", { count: "exact", head: true })
-		.eq("tanggal", today)
-		.eq("status", "menunggu");
-	const { count: completed } = await supabase
-		.from("antrian")
-		.select("*", { count: "exact", head: true })
-		.eq("tanggal", today)
-		.eq("status", "selesai");
-	stats = {
-		total: total ?? 0,
-		waiting: waiting ?? 0,
-		completed: completed ?? 0,
+	type UserRow = User & { layanan?: { nama_layanan: string } | null };
+	type StatCard = { label: string; value: number; color: string };
+	type WeeklyDatum = {
+		name: string;
+		date: string;
+		total: number;
+		selesai: number;
 	};
-}
+	type LayananStat = { name: string; fullName: string; value: number };
+	type LayananForm = {
+		open: boolean;
+		mode: 'add' | 'edit';
+		id: number | null;
+		nama: string;
+		kode: string;
+		desk: string;
+	};
+	type UserForm = {
+		open: boolean;
+		mode: 'add' | 'edit';
+		id: number | null;
+		username: string;
+		nama: string;
+		pass: string;
+		idLayanan: string;
+	};
+	type DeleteTarget = { type: 'layanan' | 'user'; id: number } | null;
+	type DashboardData = {
+		stats: { total: number; waiting: number; completed: number };
+		weekly: WeeklyDatum[];
+		layananStats: LayananStat[];
+	};
 
-async function fetchWeeklyData() {
-	const days: WeeklyDatum[] = [];
-	for (let i = 6; i >= 0; i--) {
-		const date = new Date();
-		date.setDate(date.getDate() - i);
-		const dateStr = date.toISOString().slice(0, 10);
-		const dayName = date.toLocaleDateString("id-ID", { weekday: "short" });
+	const COLORS = [
+		'#10b981',
+		'#f97316',
+		'#3b82f6',
+		'#8b5cf6',
+		'#ec4899',
+		'#06b6d4',
+	];
 
-		const { count: total } = await supabase
-			.from("antrian")
-			.select("*", { count: "exact", head: true })
-			.eq("tanggal", dateStr);
-		const { count: completed } = await supabase
-			.from("antrian")
-			.select("*", { count: "exact", head: true })
-			.eq("tanggal", dateStr)
-			.eq("status", "selesai");
+	let activeTab = $state<'home' | 'layanan' | 'users'>('home');
+	let isSidebarOpen = $state(false);
 
-		days.push({
-			name: dayName,
-			date: dateStr,
-			total: total ?? 0,
-			selesai: completed ?? 0,
-		});
-	}
-	weeklyData = days;
-}
+	let stats = $state({ total: 0, waiting: 0, completed: 0 });
+	let dataLayanan = $state<Layanan[]>([]);
+	let dataUsers = $state<UserRow[]>([]);
+	let weeklyData = $state<WeeklyDatum[]>([]);
+	let layananStats = $state<LayananStat[]>([]);
 
-async function fetchLayananStats() {
-	const today = todayIso();
-	const { data: layananList } = await supabase
-		.from("layanan")
-		.select("id_layanan, nama_layanan, kode_huruf")
-		.order("id_layanan");
-	if (!layananList) return;
-
-	const rows = await Promise.all(
-		layananList.map(
-			async (layanan: {
-				id_layanan: number;
-				nama_layanan: string;
-				kode_huruf: string;
-			}) => {
-				const { count } = await supabase
-					.from("antrian")
-					.select("*", { count: "exact", head: true })
-					.eq("tanggal", today)
-					.eq("id_layanan", layanan.id_layanan);
-				return {
-					name: layanan.kode_huruf,
-					fullName: layanan.nama_layanan,
-					value: count ?? 0,
-				};
-			},
-		),
-	);
-	layananStats = rows;
-}
-
-async function fetchLayanan() {
-	const { data } = await supabase
-		.from("layanan")
-		.select("*")
-		.order("id_layanan");
-	const result = v.safeParse(v.array(LayananSchema), data);
-	if (result.success) dataLayanan = result.output;
-}
-
-async function fetchUsers() {
-	const { data } = await supabase
-		.from("users")
-		.select("*, layanan(nama_layanan)")
-		.order("id_user");
-	dataUsers = (data ?? []) as UserRow[];
-}
-
-function openTab(tab: "home" | "layanan" | "users") {
-	activeTab = tab;
-	isSidebarOpen = false;
-	if (tab === "layanan") fetchLayanan();
-	if (tab === "users") {
-		fetchUsers();
-		fetchLayanan();
-	}
-}
-
-async function submitLayanan() {
-	if (!layananForm.nama || !layananForm.kode) {
-		toast.error("Nama dan Kode wajib diisi");
-		return;
-	}
-	if (layananForm.mode === "add") {
-		const { error } = await supabase.from("layanan").insert([
-			{
-				nama_layanan: layananForm.nama,
-				kode_huruf: layananForm.kode,
-				deskripsi: layananForm.desk || null,
-			},
-		]);
-		if (error) {
-			toast.error(error.message);
-			return;
-		}
-		toast.success("Layanan ditambahkan");
-	} else {
-		const { error } = await supabase
-			.from("layanan")
-			.update({
-				nama_layanan: layananForm.nama,
-				kode_huruf: layananForm.kode,
-				deskripsi: layananForm.desk || null,
-			})
-			.eq("id_layanan", layananForm.id);
-		if (error) {
-			toast.error(error.message);
-			return;
-		}
-		toast.success("Data berhasil diperbarui");
-	}
-	layananForm.open = false;
-	fetchLayanan();
-	fetchLayananStats();
-	fetchStats();
-}
-
-async function submitUser() {
-	if (!userForm.username || (userForm.mode === "add" && !userForm.pass)) {
-		toast.error("Username dan Password wajib diisi");
-		return;
-	}
-	const payloadLayanan = userForm.idLayanan
-		? Number.parseInt(userForm.idLayanan, 10)
-		: null;
-	if (userForm.mode === "add") {
-		const { error } = await supabase.from("users").insert([
-			{
-				username: userForm.username,
-				password: userForm.pass,
-				nama_lengkap: userForm.nama,
-				role: "petugas",
-				id_layanan: payloadLayanan,
-			},
-		]);
-		if (error) {
-			toast.error(error.message);
-			return;
-		}
-		toast.success("Petugas ditambahkan");
-	} else {
-		const updateData: Record<string, unknown> = {
-			username: userForm.username,
-			nama_lengkap: userForm.nama,
-			id_layanan: payloadLayanan,
-		};
-		if (userForm.pass) updateData.password = userForm.pass;
-		const { error } = await supabase
-			.from("users")
-			.update(updateData)
-			.eq("id_user", userForm.id);
-		if (error) {
-			toast.error(error.message);
-			return;
-		}
-		toast.success("Data petugas diperbarui");
-	}
-	userForm.open = false;
-	fetchUsers();
-}
-
-function openAddLayanan() {
-	layananForm = {
-		open: true,
-		mode: "add",
+	let layananForm = $state<LayananForm>({
+		open: false,
+		mode: 'add',
 		id: null,
-		nama: "",
-		kode: "",
-		desk: "",
-	};
-}
-
-function openEditLayanan(item: Layanan) {
-	layananForm = {
-		open: true,
-		mode: "edit",
-		id: item.id_layanan,
-		nama: item.nama_layanan,
-		kode: item.kode_huruf,
-		desk: item.deskripsi ?? "",
-	};
-}
-
-function openAddUser() {
-	userForm = {
-		open: true,
-		mode: "add",
+		nama: '',
+		kode: '',
+		desk: '',
+	});
+	let userForm = $state<UserForm>({
+		open: false,
+		mode: 'add',
 		id: null,
-		username: "",
-		nama: "",
-		pass: "",
-		idLayanan: "",
-	};
-}
+		username: '',
+		nama: '',
+		pass: '',
+		idLayanan: '',
+	});
+	let deleteTarget = $state<DeleteTarget>(null);
 
-function openEditUser(user: UserRow) {
-	userForm = {
-		open: true,
-		mode: "edit",
-		id: user.id_user,
-		username: user.username,
-		nama: user.nama_lengkap,
-		pass: "",
-		idLayanan: user.id_layanan === null ? "" : String(user.id_layanan),
-	};
-}
-
-async function confirmDelete() {
-	if (!deleteTarget) return;
-	if (deleteTarget.type === "layanan") {
-		const { error } = await supabase
-			.from("layanan")
-			.delete()
-			.eq("id_layanan", deleteTarget.id);
-		if (error) {
-			toast.error(
-				"Tidak bisa menghapus layanan yang sudah memiliki history antrian.",
-			);
-		} else {
-			toast.success("Layanan telah dihapus");
-			fetchLayanan();
-			fetchLayananStats();
+	onMount(async () => {
+		const user = await getCurrentUser();
+		if (!user) {
+			navigate('/login');
+			return;
 		}
-	} else {
-		const { error } = await supabase
-			.from("users")
-			.delete()
-			.eq("id_user", deleteTarget.id);
-		if (error) {
-			toast.error(error.message);
-		} else {
-			toast.success("User berhasil dihapus");
+		await fetchDashboard();
+	});
+
+	async function fetchDashboard() {
+		try {
+			const data = await api.get<DashboardData>('/api/stats/dashboard');
+			stats = data.stats;
+			weeklyData = data.weekly;
+			layananStats = data.layananStats;
+		} catch {
+			// fetch gagal
+		}
+	}
+
+	async function fetchLayanan() {
+		try {
+			const data = await api.get<unknown>('/api/layanan');
+			const result = v.safeParse(v.array(LayananSchema), data);
+			if (result.success) dataLayanan = result.output;
+		} catch {
+			// fetch gagal
+		}
+	}
+
+	async function fetchUsers() {
+		try {
+			const data = await api.get<unknown>('/api/users');
+			dataUsers = (data ?? []) as UserRow[];
+		} catch {
+			// fetch gagal
+		}
+	}
+
+	function openTab(tab: 'home' | 'layanan' | 'users') {
+		activeTab = tab;
+		isSidebarOpen = false;
+		if (tab === 'home') fetchDashboard();
+		if (tab === 'layanan') fetchLayanan();
+		if (tab === 'users') {
 			fetchUsers();
+			fetchLayanan();
 		}
 	}
-	deleteTarget = null;
-}
 
-function handleLogout() {
-	clearSession();
-	navigate("/login");
-}
+	async function submitLayanan() {
+		if (!layananForm.nama || !layananForm.kode) {
+			toast.error('Nama dan Kode wajib diisi');
+			return;
+		}
+		try {
+			if (layananForm.mode === 'add') {
+				await api.post('/api/layanan', {
+					nama_layanan: layananForm.nama,
+					kode_huruf: layananForm.kode,
+					deskripsi: layananForm.desk || null,
+				});
+				toast.success('Layanan ditambahkan');
+			} else {
+				await api.put(`/api/layanan/${layananForm.id}`, {
+					nama_layanan: layananForm.nama,
+					kode_huruf: layananForm.kode,
+					deskripsi: layananForm.desk || null,
+				});
+				toast.success('Data berhasil diperbarui');
+			}
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : 'Gagal menyimpan');
+			return;
+		}
+		layananForm.open = false;
+		fetchLayanan();
+		fetchDashboard();
+	}
 
-const statCards = $derived<StatCard[]>([
-	{
-		label: "Total Antrian Hari Ini",
-		value: stats.total,
-		color: "text-slate-800",
-	},
-	{ label: "Menunggu", value: stats.waiting, color: "text-orange-500" },
-	{ label: "Selesai", value: stats.completed, color: "text-emerald-600" },
-]);
+	async function submitUser() {
+		if (!userForm.username || (userForm.mode === 'add' && !userForm.pass)) {
+			toast.error('Username dan Password wajib diisi');
+			return;
+		}
+		const payloadLayanan = userForm.idLayanan
+			? Number.parseInt(userForm.idLayanan, 10)
+			: null;
+		try {
+			if (userForm.mode === 'add') {
+				await api.post('/api/users', {
+					username: userForm.username,
+					password: userForm.pass,
+					nama_lengkap: userForm.nama,
+					id_layanan: payloadLayanan,
+				});
+				toast.success('Petugas ditambahkan');
+			} else {
+				await api.put(`/api/users/${userForm.id}`, {
+					username: userForm.username,
+					nama_lengkap: userForm.nama,
+					password: userForm.pass || undefined,
+					id_layanan: payloadLayanan,
+				});
+				toast.success('Data petugas diperbarui');
+			}
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : 'Gagal menyimpan');
+			return;
+		}
+		userForm.open = false;
+		fetchUsers();
+	}
+
+	function openAddLayanan() {
+		layananForm = {
+			open: true,
+			mode: 'add',
+			id: null,
+			nama: '',
+			kode: '',
+			desk: '',
+		};
+	}
+
+	function openEditLayanan(item: Layanan) {
+		layananForm = {
+			open: true,
+			mode: 'edit',
+			id: item.id_layanan,
+			nama: item.nama_layanan,
+			kode: item.kode_huruf,
+			desk: item.deskripsi ?? '',
+		};
+	}
+
+	function openAddUser() {
+		userForm = {
+			open: true,
+			mode: 'add',
+			id: null,
+			username: '',
+			nama: '',
+			pass: '',
+			idLayanan: '',
+		};
+	}
+
+	function openEditUser(user: UserRow) {
+		userForm = {
+			open: true,
+			mode: 'edit',
+			id: user.id_user,
+			username: user.username,
+			nama: user.nama_lengkap,
+			pass: '',
+			idLayanan: user.id_layanan === null ? '' : String(user.id_layanan),
+		};
+	}
+
+	async function confirmDelete() {
+		if (!deleteTarget) return;
+		try {
+			if (deleteTarget.type === 'layanan') {
+				await api.delete(`/api/layanan/${deleteTarget.id}`);
+				toast.success('Layanan telah dihapus');
+				fetchLayanan();
+				fetchDashboard();
+			} else {
+				await api.delete(`/api/users/${deleteTarget.id}`);
+				toast.success('User berhasil dihapus');
+				fetchUsers();
+			}
+		} catch (err) {
+			toast.error(
+				err instanceof Error
+					? err.message
+					: 'Tidak bisa menghapus layanan yang sudah memiliki history antrian.',
+			);
+		}
+		deleteTarget = null;
+	}
+
+	function handleLogout() {
+		logout().then(() => navigate('/login'));
+	}
+
+	const statCards = $derived<StatCard[]>([
+		{
+			label: 'Total Antrian Hari Ini',
+			value: stats.total,
+			color: 'text-slate-800',
+		},
+		{ label: 'Menunggu', value: stats.waiting, color: 'text-orange-500' },
+		{ label: 'Selesai', value: stats.completed, color: 'text-emerald-600' },
+	]);
 </script>
 
 <div class="flex h-screen bg-slate-100 text-slate-800">

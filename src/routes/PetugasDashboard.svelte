@@ -1,163 +1,109 @@
 <script lang="ts">
-import {
-	CheckCircle,
-	ChevronRight,
-	Layers,
-	LogOut,
-	User,
-	Users,
-} from "@lucide/svelte/icons";
-import { onMount } from "svelte";
-import { toast } from "svelte-sonner";
-import * as v from "valibot";
-import {
-	AlertDialog,
-	AlertDialogAction,
-	AlertDialogCancel,
-	AlertDialogContent,
-	AlertDialogDescription,
-	AlertDialogFooter,
-	AlertDialogHeader,
-	AlertDialogTitle,
-} from "$lib/components/ui/alert-dialog";
-import { Button } from "$lib/components/ui/button";
-import { Card, CardContent } from "$lib/components/ui/card";
-import { todayIso } from "$lib/queue";
-import { navigate } from "$lib/router";
-import {
-	type AntrianDenganLayanan,
-	AntrianDenganLayananSchema,
-} from "$lib/schemas";
-import { clearSession, getSession } from "$lib/session";
-import { subscribeAntrian, supabase } from "$lib/supabaseClient";
+	import {
+		CheckCircle,
+		ChevronRight,
+		Layers,
+		LogOut,
+		User,
+		Users,
+	} from '@lucide/svelte/icons';
+	import { onMount } from 'svelte';
+	import { toast } from 'svelte-sonner';
+	import * as v from 'valibot';
+	import {
+		AlertDialog,
+		AlertDialogAction,
+		AlertDialogCancel,
+		AlertDialogContent,
+		AlertDialogDescription,
+		AlertDialogFooter,
+		AlertDialogHeader,
+		AlertDialogTitle,
+	} from '$lib/components/ui/alert-dialog';
+	import { Button } from '$lib/components/ui/button';
+	import { Card, CardContent } from '$lib/components/ui/card';
+	import { api } from '$lib/api';
+	import { subscribeAntrian } from '$lib/realtime';
+	import { navigate } from '$lib/router';
+	import {
+		type AntrianDenganLayanan,
+		AntrianDenganLayananSchema,
+	} from '$lib/schemas';
+	import { getCurrentUser, logout } from '$lib/session';
 
-const session = getSession();
-const petugas = {
-	id: session?.id_user ?? 0,
-	nama: session?.nama_lengkap ?? "",
-	id_layanan_ditugaskan: session?.id_layanan ?? null,
-};
-
-let namaLayananTugas = $state("Memuat...");
-let antrianSekarang = $state<AntrianDenganLayanan | null>(null);
-let sisaAntrian = $state(0);
-let totalSelesai = $state(0);
-let loading = $state(false);
-let dialogLogout = $state(false);
-
-onMount(() => {
-	if (!session) {
-		navigate("/login");
-		return;
+	interface PetugasDashboardData {
+		sedangDilayani: unknown;
+		sisaAntrian: number;
+		totalSelesai: number;
+		namaLayananTugas: string;
 	}
-	cekNamaLayanan();
-	fetchDataDashboard();
 
-	const unsubscribe = subscribeAntrian("dashboard-petugas", fetchDataDashboard);
+	let petugas = $state({ id: 0, nama: '', id_layanan_ditugaskan: null as number | null });
+	let namaLayananTugas = $state('Memuat...');
+	let antrianSekarang = $state<AntrianDenganLayanan | null>(null);
+	let sisaAntrian = $state(0);
+	let totalSelesai = $state(0);
+	let loading = $state(false);
+	let dialogLogout = $state(false);
 
-	return () => {
-		unsubscribe();
-	};
-});
+	onMount(() => {
+		void init();
 
-async function cekNamaLayanan() {
-	if (petugas.id_layanan_ditugaskan) {
-		const { data } = await supabase
-			.from("layanan")
-			.select("nama_layanan")
-			.eq("id_layanan", petugas.id_layanan_ditugaskan)
-			.single();
-		namaLayananTugas = data?.nama_layanan ?? "Spesialis";
-	} else {
-		namaLayananTugas = "SEMUA LAYANAN";
-	}
-}
+		const unsubscribe = subscribeAntrian(fetchDataDashboard);
 
-async function fetchDataDashboard() {
-	const today = todayIso();
+		return () => {
+			unsubscribe();
+		};
+	});
 
-	const { data: sedangDilayani } = await supabase
-		.from("antrian")
-		.select("*, layanan(nama_layanan)")
-		.eq("status", "dilayani")
-		.eq("id_user", petugas.id)
-		.eq("tanggal", today)
-		.single();
-
-	const parsed = v.safeParse(AntrianDenganLayananSchema, sedangDilayani);
-	antrianSekarang = parsed.success ? parsed.output : null;
-
-	let querySisa = supabase
-		.from("antrian")
-		.select("*", { count: "exact", head: true })
-		.eq("status", "menunggu")
-		.eq("tanggal", today);
-
-	if (petugas.id_layanan_ditugaskan) {
-		querySisa = querySisa.eq("id_layanan", petugas.id_layanan_ditugaskan);
-	}
-	const { count: sisa } = await querySisa;
-	sisaAntrian = sisa ?? 0;
-
-	const { count: selesai } = await supabase
-		.from("antrian")
-		.select("*", { count: "exact", head: true })
-		.eq("status", "selesai")
-		.eq("id_user", petugas.id)
-		.eq("tanggal", today);
-	totalSelesai = selesai ?? 0;
-}
-
-async function handleNextAntrian() {
-	if (loading) return;
-	loading = true;
-	try {
-		const today = todayIso();
-
-		if (antrianSekarang) {
-			await supabase
-				.from("antrian")
-				.update({ status: "selesai", waktu_selesai: new Date() })
-				.eq("id_antrian", antrianSekarang.id_antrian);
+	async function init() {
+		const user = await getCurrentUser();
+		if (!user) {
+			navigate('/login');
+			return;
 		}
-
-		let queryNext = supabase
-			.from("antrian")
-			.select("*")
-			.eq("status", "menunggu")
-			.eq("tanggal", today)
-			.order("id_antrian", { ascending: true })
-			.limit(1);
-
-		if (petugas.id_layanan_ditugaskan) {
-			queryNext = queryNext.eq("id_layanan", petugas.id_layanan_ditugaskan);
-		}
-
-		const { data: nextData } = await queryNext;
-		const nextQueue = nextData?.[0];
-
-		if (nextQueue) {
-			await supabase
-				.from("antrian")
-				.update({ status: "dilayani", id_user: petugas.id })
-				.eq("id_antrian", nextQueue.id_antrian);
-			toast.success(`Memanggil ${nextQueue.nomor_antrian}`);
-		} else {
-			toast.info("Tidak ada antrian yang menunggu.");
-		}
-
+		petugas = {
+			id: user.id_user,
+			nama: user.nama_lengkap,
+			id_layanan_ditugaskan: user.id_layanan,
+		};
 		await fetchDataDashboard();
-	} catch {
-		toast.error("Gagal memproses data.");
-	} finally {
-		loading = false;
 	}
-}
 
-function handleLogout() {
-	clearSession();
-	navigate("/login");
-}
+	async function fetchDataDashboard() {
+		try {
+			const data = await api.get<PetugasDashboardData>('/api/antrian/petugas');
+			const parsed = v.safeParse(AntrianDenganLayananSchema, data.sedangDilayani);
+			antrianSekarang = parsed.success ? parsed.output : null;
+			sisaAntrian = data.sisaAntrian;
+			totalSelesai = data.totalSelesai;
+			namaLayananTugas = data.namaLayananTugas;
+		} catch {
+			// fetch gagal — biarkan state lama
+		}
+	}
+
+	async function handleNextAntrian() {
+		if (loading) return;
+		loading = true;
+		try {
+			const result = await api.post<{ next: AntrianDenganLayanan | null }>('/api/antrian/next');
+			if (result.next) {
+				toast.success(`Memanggil ${result.next.nomor_antrian}`);
+			} else {
+				toast.info('Tidak ada antrian yang menunggu.');
+			}
+			await fetchDataDashboard();
+		} catch {
+			toast.error('Gagal memproses data.');
+		} finally {
+			loading = false;
+		}
+	}
+
+	function handleLogout() {
+		logout().then(() => navigate('/login'));
+	}
 </script>
 
 <div class="min-h-screen bg-slate-50 text-slate-800">

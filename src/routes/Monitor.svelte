@@ -1,72 +1,63 @@
 <script lang="ts">
-import { Calendar, Clock } from "@lucide/svelte/icons";
-import { onMount } from "svelte";
-import * as v from "valibot";
-import { todayIso } from "$lib/queue";
-import {
-	type AntrianDenganLayanan,
-	AntrianDenganLayananSchema,
-	type AntrianLengkap,
-	AntrianLengkapSchema,
-} from "$lib/schemas";
-import { subscribeAntrian, supabase } from "$lib/supabaseClient";
+	import { Calendar, Clock } from '@lucide/svelte/icons';
+	import { onMount } from 'svelte';
+	import * as v from 'valibot';
+	import { api } from '$lib/api';
+	import { subscribeAntrian } from '$lib/realtime';
+	import {
+		type AntrianDenganLayanan,
+		AntrianDenganLayananSchema,
+		type AntrianLengkap,
+		AntrianLengkapSchema,
+	} from '$lib/schemas';
 
-let antrianDilayani = $state<AntrianLengkap[]>([]);
-let antrianMenunggu = $state<AntrianDenganLayanan[]>([]);
-let waktu = $state(new Date());
+	interface DisplayData {
+		dilayani: unknown[];
+		menunggu: unknown[];
+	}
 
-const dateFormatter = new Intl.DateTimeFormat("id-ID", {
-	weekday: "long",
-	day: "2-digit",
-	month: "long",
-	year: "numeric",
-});
+	let antrianDilayani = $state<AntrianLengkap[]>([]);
+	let antrianMenunggu = $state<AntrianDenganLayanan[]>([]);
+	let waktu = $state(new Date());
 
-function formatTime(d: Date): string {
-	return [d.getHours(), d.getMinutes(), d.getSeconds()]
-		.map((n) => String(n).padStart(2, "0"))
-		.join(":");
-}
+	const dateFormatter = new Intl.DateTimeFormat('id-ID', {
+		weekday: 'long',
+		day: '2-digit',
+		month: 'long',
+		year: 'numeric',
+	});
 
-onMount(() => {
-	const timer = setInterval(() => {
-		waktu = new Date();
-	}, 1000);
+	function formatTime(d: Date): string {
+		return [d.getHours(), d.getMinutes(), d.getSeconds()]
+			.map((n) => String(n).padStart(2, '0'))
+			.join(':');
+	}
 
-	fetchDataAntrian();
-	const unsubscribe = subscribeAntrian("public:antrian", fetchDataAntrian);
+	onMount(() => {
+		const timer = setInterval(() => {
+			waktu = new Date();
+		}, 1000);
 
-	return () => {
-		clearInterval(timer);
-		unsubscribe();
-	};
-});
+		fetchDataAntrian();
+		const unsubscribe = subscribeAntrian(fetchDataAntrian);
 
-async function fetchDataAntrian() {
-	const today = todayIso();
-	const { data: dataDilayani } = await supabase
-		.from("antrian")
-		.select("*, layanan(*), users(*)")
-		.eq("status", "dilayani")
-		.eq("tanggal", today)
-		.order("waktu_selesai", { ascending: false });
+		return () => {
+			clearInterval(timer);
+			unsubscribe();
+		};
+	});
 
-	const { data: dataMenunggu } = await supabase
-		.from("antrian")
-		.select("*, layanan(*)")
-		.eq("status", "menunggu")
-		.eq("tanggal", today)
-		.order("id_antrian", { ascending: true })
-		.limit(5);
-
-	const dilayani = v.safeParse(v.array(AntrianLengkapSchema), dataDilayani);
-	const menunggu = v.safeParse(
-		v.array(AntrianDenganLayananSchema),
-		dataMenunggu,
-	);
-	if (dilayani.success) antrianDilayani = dilayani.output;
-	if (menunggu.success) antrianMenunggu = menunggu.output;
-}
+	async function fetchDataAntrian() {
+		try {
+			const data = await api.get<DisplayData>('/api/antrian/display');
+			const dilayani = v.safeParse(v.array(AntrianLengkapSchema), data.dilayani);
+			const menunggu = v.safeParse(v.array(AntrianDenganLayananSchema), data.menunggu);
+			if (dilayani.success) antrianDilayani = dilayani.output;
+			if (menunggu.success) antrianMenunggu = menunggu.output;
+		} catch {
+			// fetch gagal — biarkan tampilan lama, WS akan refetch
+		}
+	}
 </script>
 
 <div class="flex min-h-screen flex-col overflow-hidden bg-slate-100 text-slate-800">

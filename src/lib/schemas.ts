@@ -35,7 +35,6 @@ export type UserRole = v.InferOutput<typeof UserRoleSchema>;
 export const UserSchema = v.object({
 	id_user: v.number(),
 	username: v.string(),
-	password: v.string(),
 	nama_lengkap: v.string(),
 	role: UserRoleSchema,
 	id_layanan: v.nullable(v.number()),

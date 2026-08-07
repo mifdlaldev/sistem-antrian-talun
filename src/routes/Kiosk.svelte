@@ -1,83 +1,63 @@
 <script lang="ts">
-import { Building2, Info, MapPin, Printer, Tv } from "@lucide/svelte/icons";
-import { onMount } from "svelte";
-import * as v from "valibot";
-import {
-	Card,
-	CardContent,
-	CardHeader,
-	CardTitle,
-} from "$lib/components/ui/card";
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogHeader,
-	DialogTitle,
-} from "$lib/components/ui/dialog";
-import { buildNomorAntrian, todayIso } from "$lib/queue";
-import { navigate } from "$lib/router";
-import { type Layanan, LayananSchema } from "$lib/schemas";
-import { supabase } from "$lib/supabaseClient";
+	import { Building2, Info, MapPin, Printer, Tv } from '@lucide/svelte/icons';
+	import { onMount } from 'svelte';
+	import * as v from 'valibot';
+	import {
+		Card,
+		CardContent,
+		CardHeader,
+		CardTitle,
+	} from '$lib/components/ui/card';
+	import {
+		Dialog,
+		DialogContent,
+		DialogDescription,
+		DialogHeader,
+		DialogTitle,
+	} from '$lib/components/ui/dialog';
+	import { api } from '$lib/api';
+	import { navigate } from '$lib/router';
+	import { type Layanan, LayananSchema } from '$lib/schemas';
 
-let daftarLayanan = $state<Layanan[]>([]);
-let loading = $state(false);
-let antrianTerakhir = $state("-");
-let popupTerbuka = $state(false);
-let nomorBaru = $state("");
-let namaLayananBaru = $state("");
+	let daftarLayanan = $state<Layanan[]>([]);
+	let loading = $state(false);
+	let antrianTerakhir = $state('-');
+	let popupTerbuka = $state(false);
+	let nomorBaru = $state('');
+	let namaLayananBaru = $state('');
 
-onMount(async () => {
-	const { data, error } = await supabase
-		.from("layanan")
-		.select("*")
-		.order("id_layanan", { ascending: true });
-	if (error) {
-		console.error("Gagal mengambil data layanan:", error);
-		return;
+	onMount(async () => {
+		try {
+			const data = await api.get<unknown>('/api/layanan');
+			const result = v.safeParse(v.array(LayananSchema), data);
+			if (result.success) daftarLayanan = result.output;
+		} catch (error) {
+			console.error('Gagal mengambil data layanan:', error);
+		}
+	});
+
+	async function handleAmbilAntrian(layanan: Layanan) {
+		if (loading) return;
+		loading = true;
+		try {
+			const result = await api.post<{ nomor_antrian: string; nama_layanan: string }>(
+				'/api/antrian',
+				{ id_layanan: layanan.id_layanan },
+			);
+
+			antrianTerakhir = result.nomor_antrian;
+			nomorBaru = result.nomor_antrian;
+			namaLayananBaru = result.nama_layanan;
+			popupTerbuka = true;
+			setTimeout(() => {
+				popupTerbuka = false;
+			}, 4000);
+		} catch (error) {
+			console.error('Error saat ambil antrian:', error);
+		} finally {
+			loading = false;
+		}
 	}
-	const result = v.safeParse(v.array(LayananSchema), data);
-	if (result.success) daftarLayanan = result.output;
-});
-
-async function handleAmbilAntrian(layanan: Layanan) {
-	if (loading) return;
-	loading = true;
-	try {
-		const today = todayIso();
-		const { data: antrianHariIni, error: countError } = await supabase
-			.from("antrian")
-			.select("id_antrian", { count: "exact" })
-			.eq("id_layanan", layanan.id_layanan)
-			.gte("tanggal", today);
-		if (countError) throw countError;
-
-		const urutan = (antrianHariIni?.length ?? 0) + 1;
-		const nomor = buildNomorAntrian(layanan.kode_huruf, urutan);
-
-		const { error: insertError } = await supabase.from("antrian").insert([
-			{
-				nomor_antrian: nomor,
-				id_layanan: layanan.id_layanan,
-				status: "menunggu",
-				tanggal: today,
-			},
-		]);
-		if (insertError) throw insertError;
-
-		antrianTerakhir = nomor;
-		nomorBaru = nomor;
-		namaLayananBaru = layanan.nama_layanan;
-		popupTerbuka = true;
-		setTimeout(() => {
-			popupTerbuka = false;
-		}, 4000);
-	} catch (error) {
-		console.error("Error saat ambil antrian:", error);
-	} finally {
-		loading = false;
-	}
-}
 </script>
 
 <div class="min-h-screen bg-slate-50 text-slate-800">
