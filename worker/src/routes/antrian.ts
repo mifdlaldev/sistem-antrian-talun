@@ -77,6 +77,8 @@ function shapeMenunggu(row: MenungguRow) {
 	};
 }
 
+const COOLDOWN_MS = 60_000;
+
 export const antrianRoutes = new Hono<{
 	Bindings: Env;
 	Variables: SessionVariables;
@@ -97,37 +99,64 @@ antrianRoutes.post("/", async (c) => {
 		.first<LayananRow>();
 	if (!layanan) return c.json({ error: "Layanan tidak ditemukan" }, 404);
 
-	// Insert atomik dalam satu statement — nomor dihitung dari MAX antrian hari ini
-	// (perbaikan atas race condition count-then-insert versi Supabase).
+	// Cooldown anti-duplikat: 1 nomor per IP per layanan per 60 detik (P5).
+	const ip = c.req.header("CF-Connecting-IP") ?? null;
+	const now = Date.now();
+	if (ip) {
+		const terakhir = await c.env.DB.prepare(
+			"SELECT waktu_buat FROM antrian WHERE ip = ? AND id_layanan = ? AND tanggal = ? ORDER BY id_antrian DESC LIMIT 1",
+		)
+			.bind(ip, body.output.id_layanan, today)
+			.first<{ waktu_buat: number | null }>();
+		if (terakhir?.waktu_buat !== null && terakhir?.waktu_buat !== undefined) {
+			const sisa = COOLDOWN_MS - (now - terakhir.waktu_buat);
+			if (sisa > 0) {
+				return c.json(
+					{
+						error: `Mohon tunggu ${Math.ceil(sisa / 1000)} detik sebelum mengambil nomor lagi.`,
+					},
+					429,
+				);
+			}
+		}
+	}
+
+	// Insert atomik satu statement + RETURNING: nomor dari MAX antrian hari ini,
+	// langsung dikembalikan tanpa query-back (bebas race, P1).
 	const inserted = await c.env.DB.prepare(
-		`INSERT INTO antrian (nomor_antrian, id_layanan, status, tanggal)
+		`INSERT INTO antrian (nomor_antrian, id_layanan, status, tanggal, ip, waktu_buat)
 		 SELECT printf('%s-%03d', l.kode_huruf,
 			COALESCE(MAX(CAST(SUBSTR(a.nomor_antrian, 3) AS INTEGER)), 0) + 1),
-			l.id_layanan, 'menunggu', ?
+			l.id_layanan, 'menunggu', ?, ?, ?
 		 FROM layanan l
 		 LEFT JOIN antrian a ON a.id_layanan = l.id_layanan AND a.tanggal = ?
 		 WHERE l.id_layanan = ?
-		 GROUP BY l.id_layanan`,
+		 GROUP BY l.id_layanan
+		 RETURNING nomor_antrian`,
 	)
-		.bind(today, today, body.output.id_layanan)
-		.run();
-
-	if (inserted.meta.changes === 0) {
-		return c.json({ error: "Gagal membuat antrian" }, 500);
-	}
-
-	const row = await c.env.DB.prepare(
-		"SELECT nomor_antrian FROM antrian WHERE id_layanan = ? AND tanggal = ? ORDER BY id_antrian DESC LIMIT 1",
-	)
-		.bind(body.output.id_layanan, today)
+		.bind(today, ip, now, today, body.output.id_layanan)
 		.first<{ nomor_antrian: string }>();
-	if (!row) return c.json({ error: "Gagal membuat antrian" }, 500);
+
+	if (!inserted) return c.json({ error: "Gagal membuat antrian" }, 500);
 
 	await broadcast(c.env);
 	return c.json(
-		{ nomor_antrian: row.nomor_antrian, nama_layanan: layanan.nama_layanan },
+		{
+			nomor_antrian: inserted.nomor_antrian,
+			nama_layanan: layanan.nama_layanan,
+		},
 		201,
 	);
+});
+
+antrianRoutes.get("/last", async (c) => {
+	const today = todayIso();
+	const row = await c.env.DB.prepare(
+		"SELECT nomor_antrian FROM antrian WHERE tanggal = ? ORDER BY id_antrian DESC LIMIT 1",
+	)
+		.bind(today)
+		.first<{ nomor_antrian: string }>();
+	return c.json({ nomor_antrian: row?.nomor_antrian ?? null });
 });
 
 antrianRoutes.get("/display", async (c) => {
@@ -153,9 +182,15 @@ antrianRoutes.get("/display", async (c) => {
 	)
 		.bind(today)
 		.all<MenungguRow>();
+	const { results: totalRows } = await c.env.DB.prepare(
+		"SELECT COUNT(*) AS cnt FROM antrian WHERE status = 'menunggu' AND tanggal = ?",
+	)
+		.bind(today)
+		.all<{ cnt: number }>();
 	return c.json({
 		dilayani: dilayani.map(shapeDilayani),
 		menunggu: menunggu.map(shapeMenunggu),
+		totalMenunggu: totalRows[0]?.cnt ?? 0,
 	});
 });
 
@@ -233,46 +268,64 @@ antrianRoutes.post("/next", requireRoles("petugas"), async (c) => {
 		.first<UserRow>();
 	if (!user) return c.json({ error: "Unauthorized" }, 401);
 
+	// Selesaikan antrian aktif + klaim berikutnya dalam SATU batch (transaksi atomik).
+	// Klaim memakai UPDATE ... RETURNING dengan subquery — hanya satu petugas yang
+	// berhasil (yang kalah mendapat changes=0), bebas double-panggil (P2/P3).
+	const stmts = [];
 	const sedangDilayani = await c.env.DB.prepare(
 		"SELECT * FROM antrian WHERE status = 'dilayani' AND id_user = ? AND tanggal = ?",
 	)
 		.bind(session.id_user, today)
 		.first<AntrianRow>();
 	if (sedangDilayani) {
-		await c.env.DB.prepare(
-			"UPDATE antrian SET status = 'selesai', waktu_selesai = ? WHERE id_antrian = ?",
-		)
-			.bind(new Date().toISOString(), sedangDilayani.id_antrian)
-			.run();
+		stmts.push(
+			c.env.DB.prepare(
+				"UPDATE antrian SET status = 'selesai', waktu_selesai = ? WHERE id_antrian = ?",
+			).bind(new Date().toISOString(), sedangDilayani.id_antrian),
+		);
 	}
 
-	const nextQueue =
+	const claimSql =
 		user.id_layanan === null
-			? await c.env.DB.prepare(
-					`SELECT a.*, l.nama_layanan, l.kode_huruf
-					 FROM antrian a JOIN layanan l ON l.id_layanan = a.id_layanan
-					 WHERE a.status = 'menunggu' AND a.tanggal = ?
-					 ORDER BY a.id_antrian ASC LIMIT 1`,
-				)
-					.bind(today)
-					.first<MenungguRow>()
-			: await c.env.DB.prepare(
-					`SELECT a.*, l.nama_layanan, l.kode_huruf
-					 FROM antrian a JOIN layanan l ON l.id_layanan = a.id_layanan
-					 WHERE a.status = 'menunggu' AND a.tanggal = ? AND a.id_layanan = ?
-					 ORDER BY a.id_antrian ASC LIMIT 1`,
-				)
-					.bind(today, user.id_layanan)
-					.first<MenungguRow>();
+			? `UPDATE antrian SET status = 'dilayani', id_user = ?
+			   WHERE id_antrian = (
+				   SELECT id_antrian FROM antrian
+				   WHERE status = 'menunggu' AND tanggal = ?
+				   ORDER BY id_antrian ASC LIMIT 1
+			   )
+			   RETURNING id_antrian, nomor_antrian, id_layanan`
+			: `UPDATE antrian SET status = 'dilayani', id_user = ?
+			   WHERE id_antrian = (
+				   SELECT id_antrian FROM antrian
+				   WHERE status = 'menunggu' AND tanggal = ? AND id_layanan = ?
+				   ORDER BY id_antrian ASC LIMIT 1
+			   )
+			   RETURNING id_antrian, nomor_antrian, id_layanan`;
+	stmts.push(
+		user.id_layanan === null
+			? c.env.DB.prepare(claimSql).bind(session.id_user, today)
+			: c.env.DB.prepare(claimSql).bind(
+					session.id_user,
+					today,
+					user.id_layanan,
+				),
+	);
 
-	if (nextQueue) {
-		await c.env.DB.prepare(
-			"UPDATE antrian SET status = 'dilayani', id_user = ? WHERE id_antrian = ?",
+	const results = await c.env.DB.batch(stmts);
+	const claimed = results[results.length - 1]?.results?.[0] as
+		| { id_antrian: number; nomor_antrian: string; id_layanan: number }
+		| undefined;
+
+	if (claimed) {
+		const nextQueue = await c.env.DB.prepare(
+			`SELECT a.*, l.nama_layanan, l.kode_huruf
+			 FROM antrian a JOIN layanan l ON l.id_layanan = a.id_layanan
+			 WHERE a.id_antrian = ?`,
 		)
-			.bind(session.id_user, nextQueue.id_antrian)
-			.run();
+			.bind(claimed.id_antrian)
+			.first<MenungguRow>();
 		await broadcast(c.env);
-		return c.json({ next: shapeMenunggu(nextQueue) });
+		return c.json({ next: nextQueue ? shapeMenunggu(nextQueue) : null });
 	}
 	return c.json({ next: null });
 });

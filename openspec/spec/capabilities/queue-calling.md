@@ -32,15 +32,15 @@ jika `id_layanan` terisi → nama layanan tersebut; jika `null` → "SEMUA LAYAN
 
 `POST /api/antrian/next` (Worker, role petugas): jika ada baris `antrian`
 ber-`status: "dilayani"` dengan `id_user` = petugas ini, set `status: "selesai"` dan
-`waktu_selesai`.
+`waktu_selesai` — dalam **satu `db.batch`** dengan klaim berikutnya (transaksi atomik).
 
-### Requirement: Panggil antrian berikutnya
+### Requirement: Panggil antrian berikutnya (klaim atomik)
 
-Worker HARUS mengambil baris `menunggu` hari ini urut `id_antrian` ASC, limit 1.
-Jika petugas spesialis (`id_layanan` tidak null) → filter `id_layanan` sama dengan
-penugasan. Jika petugas general (`id_layanan` null) → tanpa filter layanan. Baris
-terpilih diset `status: "dilayani"` dan `id_user` petugas, lalu broadcast realtime.
-Response: `{ next }` atau `{ next: null }`.
+Worker HARUS mengklaim baris `menunggu` hari ini urut `id_antrian` ASC via
+**`UPDATE ... RETURNING` dengan subquery** (filter `id_layanan` jika petugas spesialis;
+tanpa filter jika general) dalam batch yang sama. **Hanya satu petugas yang berhasil**
+(yang kalah mendapat nol baris) — bebas double-panggil. Baris terpilih diset
+`dilayani` + `id_user`, lalu broadcast. Response: `{ next }` atau `{ next: null }`.
 
 ### Requirement: Notifikasi
 

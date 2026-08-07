@@ -64,6 +64,10 @@ sisi server.
 - SQL berparameter (prepared statements) — tahan injeksi.
 - Nomor antrian dibuat dengan **insert atomik satu statement** — bebas duplikasi saat
   kiosk digunakan bersamaan.
+- **Cooldown 60 detik per IP per layanan** — mencegah pengambilan nomor ganda
+  beruntun (di samping cooldown perangkat di sisi klien).
+- Tanggal antrian menggunakan **zona WIB** (`Asia/Jakarta`) — konsisten dengan jam
+  operasional kantor.
 
 ## Teknologi
 

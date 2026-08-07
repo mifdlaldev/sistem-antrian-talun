@@ -28,8 +28,10 @@ menyentuh DB langsung.
 | `id_layanan` | INTEGER | ya | Foreign key → `layanan.id_layanan` |
 | `id_user` | INTEGER | tidak | FK → `users.id_user`; diisi petugas yang melayani |
 | `status` | TEXT | ya | `menunggu` \| `dilayani` \| `selesai` (CHECK) |
-| `tanggal` | TEXT | ya | ISO `YYYY-MM-DD` (UTC) |
+| `tanggal` | TEXT | ya | ISO `YYYY-MM-DD` (**zona WIB**, `todayIso()`) |
 | `waktu_selesai` | TEXT | tidak | ISO timestamp, diisi saat status → `selesai` |
+| `ip` | TEXT | tidak | IP pengambil (`CF-Connecting-IP`) — untuk cooldown anti-duplikat |
+| `waktu_buat` | INTEGER | tidak | Epoch ms saat nomor dibuat — untuk cooldown & audit |
 
 Index: `antrian(tanggal)`, `antrian(status)`, `antrian(id_layanan, tanggal)`.
 
@@ -51,8 +53,12 @@ Index: `antrian(tanggal)`, `antrian(status)`, `antrian(id_layanan, tanggal)`.
 
 ## Catatan Query (Worker)
 
-- `POST /api/antrian`: insert **atomik satu statement** (`INSERT ... SELECT` dengan
-  `MAX(SUBSTR(nomor_antrian, 3))`) — tanpa race condition.
-- `GET /api/antrian/display`: join `layanan` + `users` — hanya kolom yang dipilih
-  (projection server-side, password_hash tidak pernah dikirim).
+- `POST /api/antrian`: insert **atomik satu statement** + `RETURNING nomor_antrian`
+  (`MAX(SUBSTR(nomor_antrian, 3))` per layanan+tanggal) — tanpa race, tanpa query-back.
+- `POST /api/antrian`: **cooldown 60 detik per IP per layanan** (kolom `ip` +
+  `waktu_buat`) → 429.
+- `POST /api/antrian/next`: selesaikan aktif + **klaim atomik**
+  `UPDATE ... RETURNING` dalam satu `db.batch` — hanya satu petugas yang menang.
+- `GET /api/antrian/display`: join `layanan` + `users` (projection server-side,
+  `password_hash` tidak pernah dikirim) + `totalMenunggu`.
 - `GET /api/users`: `LEFT JOIN layanan` untuk nama layanan tugas.

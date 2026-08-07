@@ -25,9 +25,15 @@ dibuka (`onMount` + `api.get('/api/layanan')`). Loading state ditampilkan selama
 ### Requirement: Penghitungan nomor antrian (server-side, atomik)
 
 Nomor antrian HARUS dihitung **di Worker** (`POST /api/antrian`) dengan **insert atomik
-satu statement** — nomor diambil dari `MAX(SUBSTR(nomor_antrian, 3))` per
-layanan+tanggal dalam `INSERT ... SELECT`. **Race-safe** (perbaikan dari versi Supabase lama
-count-then-insert yang non-atomic).
+satu statement + `RETURNING nomor_antrian`** — nomor dari `MAX(SUBSTR(nomor_antrian, 3))`
+per layanan+tanggal, dikembalikan langsung tanpa query-back (bebas race).
+
+### Requirement: Cooldown anti-duplikat
+
+Worker HARUS menerapkan **cooldown 60 detik per IP per layanan** (`CF-Connecting-IP`,
+kolom `ip` + `waktu_buat`): jika ada pengambilan dari IP sama untuk layanan sama dalam
+60 detik → response **429** dengan pesan tunggu. Client HARUS punya cooldown
+localStorage serupa (pesan "Mohon tunggu X detik").
 
 ### Requirement: Format nomor antrian
 

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Building2, Info, MapPin, Printer, Tv } from '@lucide/svelte/icons';
 	import { onMount } from 'svelte';
+	import { toast } from 'svelte-sonner';
 	import * as v from 'valibot';
 	import {
 		Card,
@@ -15,9 +16,12 @@
 		DialogHeader,
 		DialogTitle,
 	} from '$lib/components/ui/dialog';
-	import { api } from '$lib/api';
+	import { api, ApiError } from '$lib/api';
+	import { subscribeAntrian } from '$lib/realtime';
 	import { navigate } from '$lib/router';
 	import { type Layanan, LayananSchema } from '$lib/schemas';
+
+	const COOLDOWN_MS = 60_000;
 
 	let daftarLayanan = $state<Layanan[]>([]);
 	let loading = $state(false);
@@ -26,7 +30,14 @@
 	let nomorBaru = $state('');
 	let namaLayananBaru = $state('');
 
-	onMount(async () => {
+	onMount(() => {
+		fetchLayanan();
+		fetchLastNomor();
+		const unsubscribe = subscribeAntrian(fetchLastNomor);
+		return () => unsubscribe();
+	});
+
+	async function fetchLayanan() {
 		try {
 			const data = await api.get<unknown>('/api/layanan');
 			const result = v.safeParse(v.array(LayananSchema), data);
@@ -34,10 +45,28 @@
 		} catch (error) {
 			console.error('Gagal mengambil data layanan:', error);
 		}
-	});
+	}
+
+	async function fetchLastNomor() {
+		try {
+			const data = await api.get<{ nomor_antrian: string | null }>('/api/antrian/last');
+			if (data.nomor_antrian) antrianTerakhir = data.nomor_antrian;
+		} catch {
+			// biarkan nilai lama
+		}
+	}
 
 	async function handleAmbilAntrian(layanan: Layanan) {
 		if (loading) return;
+
+		const cooldownKey = `antrian_cooldown_${layanan.id_layanan}`;
+		const last = Number(localStorage.getItem(cooldownKey) ?? 0);
+		const sisa = COOLDOWN_MS - (Date.now() - last);
+		if (sisa > 0) {
+			toast.error(`Mohon tunggu ${Math.ceil(sisa / 1000)} detik sebelum mengambil nomor lagi.`);
+			return;
+		}
+
 		loading = true;
 		try {
 			const result = await api.post<{ nomor_antrian: string; nama_layanan: string }>(
@@ -45,6 +74,7 @@
 				{ id_layanan: layanan.id_layanan },
 			);
 
+			localStorage.setItem(cooldownKey, String(Date.now()));
 			antrianTerakhir = result.nomor_antrian;
 			nomorBaru = result.nomor_antrian;
 			namaLayananBaru = result.nama_layanan;
@@ -53,7 +83,11 @@
 				popupTerbuka = false;
 			}, 4000);
 		} catch (error) {
-			console.error('Error saat ambil antrian:', error);
+			if (error instanceof ApiError) {
+				toast.error(error.message);
+			} else {
+				console.error('Error saat ambil antrian:', error);
+			}
 		} finally {
 			loading = false;
 		}

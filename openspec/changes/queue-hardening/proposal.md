@@ -1,10 +1,26 @@
 ---
 id: queue-hardening
 title: Analisis Mendalam — Problem Flow & Solusi (Queue Hardening)
-status: draft
+status: in-progress
 ---
 
 # Change: Queue Hardening — Analisis Problem & Solusi
+
+## Status Implementasi (diperbarui)
+
+| Item | Status |
+|---|---|
+| P1 (INSERT...RETURNING) | ✅ Diimplementasikan |
+| P2/P3 (klaim atomik + batch) | ✅ Diimplementasikan |
+| P5 (cooldown IP 60s + client) | ✅ Diimplementasikan |
+| P7 (totalMenunggu) | ✅ Diimplementasikan |
+| P8 (GET /api/antrian/last) | ✅ Diimplementasikan |
+| P9 (refetch on reconnect) | ✅ Diimplementasikan |
+| P12 (zona WIB) | ✅ Diimplementasikan |
+| P4 (rate limit WAF/Turnstile) | ⏳ Belum (config dashboard) |
+| P13 (skip/batal/recall) | ⏳ Belum (butuh redesign status) |
+| P10 (login rate limit) | ⏳ Belum (WAF dashboard) |
+| P6, P11, P14, P15 | ⏳ Belum (prioritas rendah) |
 
 ## Context
 

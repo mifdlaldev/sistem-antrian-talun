@@ -26,7 +26,9 @@ Monitor HARUS mengambil antrian `dilayani` hari ini via `GET /api/antrian/displa
 ### Requirement: Daftar antrian menunggu
 
 Monitor HARUS mengambil maksimal 5 baris `status: "menunggu"` hari ini, urut
-`id_antrian` ascending (FIFO) — disediakan oleh endpoint display yang sama.
+`id_antrian` ascending (FIFO), plus `totalMenunggu` (jumlah seluruh antrian menunggu
+hari ini) — disediakan oleh endpoint display yang sama. Tampilkan chip jumlah + baris
+"+N antrian lagi" jika total > 5.
 
 ### Requirement: Langganan realtime
 

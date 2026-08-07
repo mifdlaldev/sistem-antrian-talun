@@ -14,10 +14,12 @@
 	interface DisplayData {
 		dilayani: unknown[];
 		menunggu: unknown[];
+		totalMenunggu?: number;
 	}
 
 	let antrianDilayani = $state<AntrianLengkap[]>([]);
 	let antrianMenunggu = $state<AntrianDenganLayanan[]>([]);
+	let totalMenunggu = $state(0);
 	let waktu = $state(new Date());
 
 	const dateFormatter = new Intl.DateTimeFormat('id-ID', {
@@ -54,6 +56,7 @@
 			const menunggu = v.safeParse(v.array(AntrianDenganLayananSchema), data.menunggu);
 			if (dilayani.success) antrianDilayani = dilayani.output;
 			if (menunggu.success) antrianMenunggu = menunggu.output;
+			totalMenunggu = data.totalMenunggu ?? 0;
 		} catch {
 			// fetch gagal — biarkan tampilan lama, WS akan refetch
 		}
@@ -129,6 +132,11 @@
 					<h2 class="font-display text-lg font-bold uppercase tracking-wider text-navy sm:text-xl">
 						Antrian Selanjutnya
 					</h2>
+					{#if totalMenunggu > 0}
+						<span class="rounded-full bg-navy px-2.5 py-0.5 font-display text-xs font-bold tabular-nums text-gold sm:text-sm">
+							{totalMenunggu}
+						</span>
+					{/if}
 				</div>
 				<div class="flex-1 overflow-hidden">
 					{#if antrianMenunggu.length === 0}
@@ -157,6 +165,11 @@
 								</div>
 							{/each}
 						</div>
+						{#if totalMenunggu > antrianMenunggu.length}
+							<p class="border-t border-white/10 px-5 py-3 text-center font-display text-sm font-semibold text-white/60">
+								+ {totalMenunggu - antrianMenunggu.length} antrian lagi menunggu
+							</p>
+						{/if}
 					{/if}
 				</div>
 			</div>

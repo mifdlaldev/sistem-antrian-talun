@@ -203,8 +203,9 @@ perubahan path. Role tidak cocok → redirect ke dashboard sendiri.
 | POST | `/api/layanan` | admin | Tambah layanan |
 | PUT | `/api/layanan/:id` | admin | Update layanan |
 | DELETE | `/api/layanan/:id` | admin | Hapus layanan |
-| POST | `/api/antrian` | public | Buat nomor antrian (**atomik**, single statement) |
-| GET | `/api/antrian/display` | public | dilayani + 5 menunggu (join layanan/users) |
+| POST | `/api/antrian` | public | Buat nomor antrian (**atomik** `INSERT...RETURNING`) |
+| GET | `/api/antrian/last` | public | Nomor antrian terakhir hari ini |
+| GET | `/api/antrian/display` | public | dilayani + 5 menunggu + `totalMenunggu` (join layanan/users) |
 | GET | `/api/antrian/petugas` | petugas | sedangDilayani, sisaAntrian, totalSelesai |
 | POST | `/api/antrian/next` | petugas | Selesaikan aktif + panggil berikutnya (FIFO) |
 | GET | `/api/users` | admin | Daftar users (join layanan) |
@@ -245,8 +246,10 @@ Semua route non-API → static assets (SPA fallback).
 | `id_layanan` | FK → `layanan.id_layanan` |
 | `id_user` | FK → `users.id_user`, nullable; petugas yang melayani |
 | `status` | TEXT CHECK: `menunggu` \| `dilayani` \| `selesai` |
-| `tanggal` | TEXT `YYYY-MM-DD` |
+| `tanggal` | TEXT `YYYY-MM-DD` (**zona WIB** — `todayIso()`) |
 | `waktu_selesai` | TEXT (ISO), set saat `selesai` |
+| `ip` | TEXT nullable — IP pengambil (anti-duplikat, P5) |
+| `waktu_buat` | INTEGER nullable — epoch ms saat dibuat |
 
 ### `users`
 | Column | Notes |
@@ -268,9 +271,12 @@ Seed (`0002_seed.sql`): `admin`/`admin123` (role admin), `petugas1`/`petugas123`
 ## Key Behaviors (verified)
 
 ### Queue number generation (`POST /api/antrian`)
-- Insert **atomik satu statement**: nomor dihitung dari `MAX(SUBSTR(nomor_antrian, 3))`
-  per layanan+tanggal dalam `INSERT ... SELECT`. **Tidak ada race condition**
-  (perbaikan dari versi Supabase count-then-insert).
+- Insert **atomik satu statement** + `RETURNING nomor_antrian` — nomor dari
+  `MAX(SUBSTR(nomor_antrian, 3))` per layanan+tanggal, langsung dikembalikan
+  (tanpa query-back, bebas race).
+- **Cooldown 60 detik per IP per layanan** (`CF-Connecting-IP`) → 429 jika terlalu
+  cepat. Client juga punya cooldown localStorage.
+- `tanggal` memakai **zona WIB** (`todayIso()` di `worker/src/queue.ts`).
 - Broadcast ke realtime hub, lalu return `{ nomor_antrian, nama_layanan }`.
 
 ### Login (`POST /api/auth/login`)
@@ -288,10 +294,10 @@ Seed (`0002_seed.sql`): `admin`/`admin123` (role admin), `petugas1`/`petugas123`
 - Frontend `subscribeAntrian(cb)` (auto-reconnect 3s) → `cb` refetch data.
 
 ### Petugas call-next flow (`POST /api/antrian/next`)
-1. Jika ada antrian `dilayani` oleh petugas ini → set `selesai` + `waktu_selesai`.
-2. Ambil `menunggu` pertama urut `id_antrian` ASC (FIFO), filter `id_layanan` jika
-   petugas spesialis; tanpa filter jika general.
-3. Set `dilayani` + `id_user` → broadcast → return `{ next }`.
+1. Selesaikan antrian `dilayani` milik petugas (jika ada) — `selesai` + `waktu_selesai`.
+2. **Klaim atomik** `UPDATE ... RETURNING` (subquery FIFO, filter `id_layanan` jika
+   spesialis) dalam **satu `db.batch`** — hanya satu petugas yang menang (P2/P3).
+3. Broadcast → return `{ next }`.
 
 ### Admin CRUD
 - `layanan` & `users` CRUD via API admin-only. Password di-hash PBKDF2 server-side.
@@ -334,7 +340,7 @@ Seed (`0002_seed.sql`): `admin`/`admin123` (role admin), `petugas1`/`petugas123`
 | Queue-number uniqueness | **Aman** — insert atomik single-statement (perbaikan dari Supabase). |
 | Print receipt | Tidak ada (Kiosk dialog "Sedang mencetak struk..." placeholder). |
 | Bundle size | ~274 KB min / ~83 KB gzip JS. |
-| Date/timezone | `tanggal` pakai UTC ISO — bisa beda hari dengan WIB sekitar tengah malam. |
+| Date/timezone | `tanggal` memakai **zona WIB** (`Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' })`) — konsisten dengan jam operasional kantor |
 | D1 free tier | 5 GB storage, 5M baris dibaca/hari — cukup untuk skala kantor kelurahan. |
 
 ---
