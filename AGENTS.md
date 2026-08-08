@@ -225,6 +225,11 @@ Semua route non-API → static assets (SPA fallback).
 
 - **`SESSION_SECRET`** — secret untuk menandatangani cookie session (HMAC-SHA256).
   Lokal: `.dev.vars` (gitignored). Produksi: `wrangler secret put SESSION_SECRET`.
+- **`TURNSTILE_SECRET`** — secret Cloudflare Turnstile (siteverify).
+  Lokal: `.dev.vars`. Produksi: `wrangler secret put TURNSTILE_SECRET`.
+- **`TURNSTILE_HOSTNAMES`** — daftar hostname frontend yang diizinkan (koma),
+  divalidasi dari hasil siteverify. Produksi: `vars` di `wrangler.jsonc`
+  (workers.dev). Lokal: `.dev.vars` (`localhost,127.0.0.1`).
 - **Tidak ada lagi variabel `VITE_*`** — frontend tidak menyentuh database; semua query
   lewat API same-origin (`/api/*`).
 
@@ -275,6 +280,11 @@ Seed (`0002_seed.sql`): `admin`/`admin123` (role admin), `petugas1`/`petugas123`
 ## Key Behaviors (verified)
 
 ### Queue number generation (`POST /api/antrian`)
+- **Turnstile (anti-bot, P4)**: body wajib `cf_turnstile_response`; Worker panggil
+  siteverify (`challenges.cloudflare.com/turnstile/v0/siteverify`) — wajib
+  `success === true` + `action === 'ambil_antrian'` + hostname ∈ `TURNSTILE_HOSTNAMES`.
+  Gagal → 403 (fail-closed). Widget dirender eksplisit di `Kiosk.svelte` (SPA),
+  token single-use, di-reset setelah sukses.
 - Insert **atomik satu statement** + `RETURNING nomor_antrian` — nomor dari
   `MAX(SUBSTR(nomor_antrian, 3))` per layanan+tanggal, langsung dikembalikan
   (tanpa query-back, bebas race).

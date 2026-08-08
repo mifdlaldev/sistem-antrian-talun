@@ -7,7 +7,50 @@ import { broadcast } from "../realtime";
 
 const AmbilBodySchema = v.object({
 	id_layanan: v.number(),
+	cf_turnstile_response: v.pipe(v.string(), v.minLength(1)),
 });
+
+const TURNSTILE_ACTION = "ambil_antrian";
+
+async function verifikasiTurnstile(
+	env: Env,
+	getHeader: (name: string) => string | undefined,
+	token: string,
+): Promise<boolean> {
+	const hostnames = new Set(
+		env.TURNSTILE_HOSTNAMES.split(",")
+			.map((h) => h.trim())
+			.filter(Boolean),
+	);
+	if (hostnames.size === 0) return false;
+
+	let result: { success?: boolean; action?: string; hostname?: string };
+	try {
+		const r = await fetch(
+			"https://challenges.cloudflare.com/turnstile/v0/siteverify",
+			{
+				method: "POST",
+				headers: { "Content-Type": "application/x-www-form-urlencoded" },
+				signal: AbortSignal.timeout(10_000),
+				body: new URLSearchParams({
+					secret: env.TURNSTILE_SECRET,
+					response: token,
+					remoteip: getHeader("CF-Connecting-IP") ?? "",
+				}),
+			},
+		);
+		if (!r.ok) return false;
+		result = (await r.json()) as typeof result;
+	} catch {
+		return false;
+	}
+
+	return (
+		result.success === true &&
+		result.action === TURNSTILE_ACTION &&
+		(result.hostname !== undefined ? hostnames.has(result.hostname) : false)
+	);
+}
 
 interface LayananRow {
 	id_layanan: number;
@@ -20,7 +63,7 @@ interface AntrianRow {
 	nomor_antrian: string;
 	id_layanan: number;
 	id_user: number | null;
-	status: "menunggu" | "dilayani" | "selesai";
+	status: "menunggu" | "dilayani" | "selesai" | "batal";
 	tanggal: string;
 	waktu_selesai: string | null;
 }
@@ -90,6 +133,13 @@ antrianRoutes.post("/", async (c) => {
 		await c.req.json().catch(() => null),
 	);
 	if (!body.success) return c.json({ error: "id_layanan wajib diisi" }, 400);
+
+	const turnstileOk = await verifikasiTurnstile(
+		c.env,
+		(name) => c.req.header(name),
+		body.output.cf_turnstile_response,
+	);
+	if (!turnstileOk) return c.json({ error: "Verifikasi keamanan gagal" }, 403);
 
 	const today = todayIso();
 	const layanan = await c.env.DB.prepare(

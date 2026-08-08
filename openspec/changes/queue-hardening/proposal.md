@@ -19,8 +19,8 @@ status: in-progress
 | P12 (zona WIB) | ✅ Diimplementasikan |
 | P13 (skip/batal/recall) | ✅ Diimplementasikan (status `batal` + `/skip` + `/recall`) |
 | P14 (jejak audit) | ✅ Diimplementasikan (`waktu_panggil`, `waktu_batal`) |
-| P4 (rate limit WAF/Turnstile) | ⏳ Belum (config dashboard) |
-| P10 (login rate limit) | ⏳ Belum (WAF dashboard) |
+| P4 (Turnstile anti-bot) | ✅ Diimplementasikan (widget managed, action `ambil_antrian`, siteverify fail-closed) |
+| P10 (login rate limit) | ⏳ Belum (WAF dashboard / Turnstile login menyusul) |
 | P6, P11, P15 | ⏳ Belum (prioritas rendah) |
 
 ## Context

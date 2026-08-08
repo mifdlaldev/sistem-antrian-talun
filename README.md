@@ -66,6 +66,8 @@ sisi server.
   kiosk digunakan bersamaan.
 - **Cooldown 60 detik per IP per layanan** — mencegah pengambilan nomor ganda
   beruntun (di samping cooldown perangkat di sisi klien).
+- **Cloudflare Turnstile** pada kiosk — verifikasi anti-bot (siteverify server-side,
+  action + hostname diperiksa, fail-closed 403).
 - Tanggal antrian menggunakan **zona WIB** (`Asia/Jakarta`) — konsisten dengan jam
   operasional kantor.
 

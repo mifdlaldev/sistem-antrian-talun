@@ -21,6 +21,9 @@
 	"durable_objects": {
 		"bindings": [{ "name": "REALTIME", "class_name": "RealtimeHub" }]
 	},
+	"vars": {
+		"TURNSTILE_HOSTNAMES": "website-antrian-kelurahan-talun.mifdlaltsaqibalf25.workers.dev"
+	},
 	"migrations": [{ "tag": "v1", "new_sqlite_classes": ["RealtimeHub"] }],
 	"observability": {
 		"enabled": true

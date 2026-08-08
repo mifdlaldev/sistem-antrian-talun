@@ -22,6 +22,7 @@
 	import { type Layanan, LayananSchema } from '$lib/schemas';
 
 	const COOLDOWN_MS = 60_000;
+	const TURNSTILE_SITEKEY = '0x4AAAAAAEJurlz5ZqFfs3RJ';
 
 	let daftarLayanan = $state<Layanan[]>([]);
 	let loading = $state(false);
@@ -29,6 +30,7 @@
 	let popupTerbuka = $state(false);
 	let nomorBaru = $state('');
 	let namaLayananBaru = $state('');
+	let turnstileToken = $state('');
 
 	onMount(() => {
 		fetchLayanan();
@@ -36,6 +38,27 @@
 		const unsubscribe = subscribeAntrian(fetchLastNomor);
 		return () => unsubscribe();
 	});
+
+	function renderTurnstile() {
+		const el = document.getElementById('cf-turnstile');
+		if (!el || !window.turnstile || turnstileToken) return;
+		window.turnstile.render(el, {
+			sitekey: TURNSTILE_SITEKEY,
+			action: 'ambil_antrian',
+			theme: 'light',
+			callback: (token: string) => {
+				turnstileToken = token;
+			},
+			'expired-callback': () => {
+				turnstileToken = '';
+			},
+		});
+	}
+
+	function resetTurnstile() {
+		turnstileToken = '';
+		if (window.turnstile) window.turnstile.reset();
+	}
 
 	async function fetchLayanan() {
 		try {
@@ -59,6 +82,12 @@
 	async function handleAmbilAntrian(layanan: Layanan) {
 		if (loading) return;
 
+		if (!turnstileToken) {
+			renderTurnstile();
+			toast.error('Mohon selesaikan verifikasi keamanan terlebih dahulu.');
+			return;
+		}
+
 		const cooldownKey = `antrian_cooldown_${layanan.id_layanan}`;
 		const last = Number(localStorage.getItem(cooldownKey) ?? 0);
 		const sisa = COOLDOWN_MS - (Date.now() - last);
@@ -71,7 +100,10 @@
 		try {
 			const result = await api.post<{ nomor_antrian: string; nama_layanan: string }>(
 				'/api/antrian',
-				{ id_layanan: layanan.id_layanan },
+				{
+					id_layanan: layanan.id_layanan,
+					cf_turnstile_response: turnstileToken,
+				},
 			);
 
 			localStorage.setItem(cooldownKey, String(Date.now()));
@@ -79,12 +111,14 @@
 			nomorBaru = result.nomor_antrian;
 			namaLayananBaru = result.nama_layanan;
 			popupTerbuka = true;
+			resetTurnstile();
 			setTimeout(() => {
 				popupTerbuka = false;
 			}, 4000);
 		} catch (error) {
 			if (error instanceof ApiError) {
 				toast.error(error.message);
+				if (error.status === 403) resetTurnstile();
 			} else {
 				console.error('Error saat ambil antrian:', error);
 			}
@@ -226,6 +260,10 @@
 			</div>
 		</div>
 	</main>
+
+	<div class="flex justify-center pb-4">
+		<div id="cf-turnstile"></div>
+	</div>
 
 	<Dialog bind:open={popupTerbuka}>
 		<DialogContent class="sm:max-w-md">

@@ -22,6 +22,14 @@ layanan → sistem menghitung antrian hari ini untuk layanan itu → membuat nom
 Kiosk HARUS memuat semua baris `layanan` urut `id_layanan` ascending saat halaman
 dibuka (`onMount` + `api.get('/api/layanan')`). Loading state ditampilkan selama fetch.
 
+### Requirement: Proteksi Turnstile (anti-bot)
+
+Kiosk HARUS memuat widget **Cloudflare Turnstile** (action `ambil_antrian`, render
+eksplisit untuk SPA) dan mengirim `cf_turnstile_response` pada setiap `POST
+/api/antrian`. Worker HARUS memverifikasi via siteverify: `success === true`,
+`action === 'ambil_antrian'`, hostname ∈ `TURNSTILE_HOSTNAMES` — selain itu → **403
+fail-closed**. Token single-use; widget di-reset setelah pengambilan.
+
 ### Requirement: Penghitungan nomor antrian (server-side, atomik)
 
 Nomor antrian HARUS dihitung **di Worker** (`POST /api/antrian`) dengan **insert atomik
