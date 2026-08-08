@@ -17,10 +17,11 @@ status: in-progress
 | P8 (GET /api/antrian/last) | ✅ Diimplementasikan |
 | P9 (refetch on reconnect) | ✅ Diimplementasikan |
 | P12 (zona WIB) | ✅ Diimplementasikan |
+| P13 (skip/batal/recall) | ✅ Diimplementasikan (status `batal` + `/skip` + `/recall`) |
+| P14 (jejak audit) | ✅ Diimplementasikan (`waktu_panggil`, `waktu_batal`) |
 | P4 (rate limit WAF/Turnstile) | ⏳ Belum (config dashboard) |
-| P13 (skip/batal/recall) | ⏳ Belum (butuh redesign status) |
 | P10 (login rate limit) | ⏳ Belum (WAF dashboard) |
-| P6, P11, P14, P15 | ⏳ Belum (prioritas rendah) |
+| P6, P11, P15 | ⏳ Belum (prioritas rendah) |
 
 ## Context
 

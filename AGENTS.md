@@ -207,7 +207,9 @@ perubahan path. Role tidak cocok → redirect ke dashboard sendiri.
 | GET | `/api/antrian/last` | public | Nomor antrian terakhir hari ini |
 | GET | `/api/antrian/display` | public | dilayani + 5 menunggu + `totalMenunggu` (join layanan/users) |
 | GET | `/api/antrian/petugas` | petugas | sedangDilayani, sisaAntrian, totalSelesai |
-| POST | `/api/antrian/next` | petugas | Selesaikan aktif + panggil berikutnya (FIFO) |
+| POST | `/api/antrian/next` | petugas | Selesaikan aktif + panggil berikutnya (FIFO, klaim atomik) |
+| POST | `/api/antrian/skip` | petugas | Lewati no-show (`batal`) + panggil berikutnya |
+| POST | `/api/antrian/recall` | petugas | Broadcast ulang nomor yang sedang dilayani |
 | GET | `/api/users` | admin | Daftar users (join layanan) |
 | POST | `/api/users` | admin | Tambah petugas (role hardcode `petugas`) |
 | PUT | `/api/users/:id` | admin | Update user (password opsional) |
@@ -245,9 +247,11 @@ Semua route non-API → static assets (SPA fallback).
 | `nomor_antrian` | TEXT, format `KODE-001` |
 | `id_layanan` | FK → `layanan.id_layanan` |
 | `id_user` | FK → `users.id_user`, nullable; petugas yang melayani |
-| `status` | TEXT CHECK: `menunggu` \| `dilayani` \| `selesai` |
+| `status` | TEXT CHECK: `menunggu` \| `dilayani` \| `selesai` \| `batal` |
 | `tanggal` | TEXT `YYYY-MM-DD` (**zona WIB** — `todayIso()`) |
 | `waktu_selesai` | TEXT (ISO), set saat `selesai` |
+| `waktu_panggil` | TEXT (ISO), set saat `dilayani` (jejak audit) |
+| `waktu_batal` | TEXT (ISO), set saat `batal` (no-show) |
 | `ip` | TEXT nullable — IP pengambil (anti-duplikat, P5) |
 | `waktu_buat` | INTEGER nullable — epoch ms saat dibuat |
 
@@ -293,11 +297,14 @@ Seed (`0002_seed.sql`): `admin`/`admin123` (role admin), `petugas1`/`petugas123`
 - Mutasi antrian → Worker panggil `broadcast(env)` → DO kirim `refresh` ke semua WS.
 - Frontend `subscribeAntrian(cb)` (auto-reconnect 3s) → `cb` refetch data.
 
-### Petugas call-next flow (`POST /api/antrian/next`)
-1. Selesaikan antrian `dilayani` milik petugas (jika ada) — `selesai` + `waktu_selesai`.
+### Petugas call-next flow (`POST /api/antrian/next` & `/skip`)
+1. `next`: selesaikan antrian `dilayani` milik petugas (jika ada) — `selesai` +
+   `waktu_selesai`. `skip`: tandai `batal` + `waktu_batal` (no-show).
 2. **Klaim atomik** `UPDATE ... RETURNING` (subquery FIFO, filter `id_layanan` jika
-   spesialis) dalam **satu `db.batch`** — hanya satu petugas yang menang (P2/P3).
-3. Broadcast → return `{ next }`.
+   spesialis) + set `waktu_panggil` — dalam **satu `db.batch`** — hanya satu petugas
+   yang menang (P2/P3).
+3. Broadcast → return `{ next }` / `{ dilewati, next }`.
+4. `recall`: broadcast ulang tanpa mengubah data.
 
 ### Admin CRUD
 - `layanan` & `users` CRUD via API admin-only. Password di-hash PBKDF2 server-side.

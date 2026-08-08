@@ -27,9 +27,11 @@ menyentuh DB langsung.
 | `nomor_antrian` | TEXT | ya | Format `KODE-001` (contoh `A-001`) |
 | `id_layanan` | INTEGER | ya | Foreign key → `layanan.id_layanan` |
 | `id_user` | INTEGER | tidak | FK → `users.id_user`; diisi petugas yang melayani |
-| `status` | TEXT | ya | `menunggu` \| `dilayani` \| `selesai` (CHECK) |
+| `status` | TEXT | ya | `menunggu` \| `dilayani` \| `selesai` \| `batal` (CHECK) |
 | `tanggal` | TEXT | ya | ISO `YYYY-MM-DD` (**zona WIB**, `todayIso()`) |
 | `waktu_selesai` | TEXT | tidak | ISO timestamp, diisi saat status → `selesai` |
+| `waktu_panggil` | TEXT | tidak | ISO timestamp, diisi saat status → `dilayani` (jejak audit) |
+| `waktu_batal` | TEXT | tidak | ISO timestamp, diisi saat status → `batal` (no-show) |
 | `ip` | TEXT | tidak | IP pengambil (`CF-Connecting-IP`) — untuk cooldown anti-duplikat |
 | `waktu_buat` | INTEGER | tidak | Epoch ms saat nomor dibuat — untuk cooldown & audit |
 
@@ -59,6 +61,8 @@ Index: `antrian(tanggal)`, `antrian(status)`, `antrian(id_layanan, tanggal)`.
   `waktu_buat`) → 429.
 - `POST /api/antrian/next`: selesaikan aktif + **klaim atomik**
   `UPDATE ... RETURNING` dalam satu `db.batch` — hanya satu petugas yang menang.
+- `POST /api/antrian/skip`: tandai no-show `batal` + `waktu_batal`, lalu klaim berikutnya.
+- `POST /api/antrian/recall`: broadcast ulang tanpa mengubah data.
 - `GET /api/antrian/display`: join `layanan` + `users` (projection server-side,
   `password_hash` tidak pernah dikirim) + `totalMenunggu`.
 - `GET /api/users`: `LEFT JOIN layanan` untuk nama layanan tugas.

@@ -47,6 +47,17 @@ tanpa filter jika general) dalam batch yang sama. **Hanya satu petugas yang berh
 Berhasil memanggil → toast sukses "Memanggil {nomor_antrian}" via `svelte-sonner`.
 Tidak ada antrian → toast info "Antrian Kosong".
 
+### Requirement: Lewati no-show (skip)
+
+`POST /api/antrian/skip` (petugas) HARUS menandai antrian `dilayani` milik petugas
+sebagai `batal` + `waktu_batal`, lalu mengklaim antrian berikutnya (klaim atomik yang
+sama dengan `next`). Response: `{ dilewati, next }`.
+
+### Requirement: Panggil ulang (recall)
+
+`POST /api/antrian/recall` (petugas) HARUS broadcast ulang tanpa mengubah data —
+monitor menampilkan ulang nomor yang sedang dilayani.
+
 ### Requirement: Langganan realtime
 
 Dashboard HARUS subscribe via `subscribeAntrian(cb)` (WebSocket ke Durable Object) dan

@@ -18,7 +18,9 @@ berbentuk `{ "error": "pesan" }` dengan status HTTP yang sesuai.
 | POST | `/api/antrian` | publik | Ambil nomor antrian |
 | GET | `/api/antrian/display` | publik | Data monitor (dilayani + 5 menunggu) |
 | GET | `/api/antrian/petugas` | petugas | Dashboard petugas |
-| POST | `/api/antrian/next` | petugas | Panggil antrian berikutnya (FIFO) |
+| POST | `/api/antrian/next` | petugas | Panggil antrian berikutnya (FIFO, klaim atomik) |
+| POST | `/api/antrian/skip` | petugas | Lewati no-show (`batal`) + panggil berikutnya |
+| POST | `/api/antrian/recall` | petugas | Panggil ulang nomor yang sedang dilayani |
 | GET | `/api/users` | admin | Daftar petugas |
 | POST | `/api/users` | admin | Tambah petugas |
 | PUT | `/api/users/:id` | admin | Update petugas |

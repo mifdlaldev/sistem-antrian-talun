@@ -4,6 +4,8 @@
 		ChevronRight,
 		Layers,
 		LogOut,
+		RotateCcw,
+		SkipForward,
 		User,
 		Users,
 	} from '@lucide/svelte/icons';
@@ -101,6 +103,37 @@
 		}
 	}
 
+	async function handleSkipAntrian() {
+		if (loading || !antrianSekarang) return;
+		loading = true;
+		try {
+			const result = await api.post<{ dilewati: string; next: AntrianDenganLayanan | null }>(
+				'/api/antrian/skip',
+			);
+			toast.warning(`${result.dilewati} dilewati (tidak hadir)`);
+			if (result.next) toast.success(`Memanggil ${result.next.nomor_antrian}`);
+			else toast.info('Tidak ada antrian yang menunggu.');
+			await fetchDataDashboard();
+		} catch {
+			toast.error('Gagal memproses data.');
+		} finally {
+			loading = false;
+		}
+	}
+
+	async function handleRecall() {
+		if (loading) return;
+		loading = true;
+		try {
+			await api.post('/api/antrian/recall');
+			toast.success('Nomor dipanggil ulang');
+		} catch {
+			toast.error('Gagal memanggil ulang.');
+		} finally {
+			loading = false;
+		}
+	}
+
 	function handleLogout() {
 		logout().then(() => navigate('/login'));
 	}
@@ -177,7 +210,7 @@
 						<span class="font-display text-7xl font-bold tabular-nums text-slate-200 sm:text-8xl">---</span>
 					{/if}
 				</div>
-				<div class="border-t border-border bg-muted/60 p-4 sm:p-6">
+				<div class="space-y-2 border-t border-border bg-muted/60 p-4 sm:p-6">
 					<Button
 						class="w-full py-6 font-display text-lg font-bold shadow-lg"
 						size="lg"
@@ -187,6 +220,26 @@
 						{loading ? 'Memproses...' : antrianSekarang ? 'SELESAI & LANJUT' : 'PANGGIL ANTRIAN'}
 						<ChevronRight class="size-5" />
 					</Button>
+					{#if antrianSekarang}
+						<div class="grid grid-cols-2 gap-2">
+							<Button
+								variant="outline"
+								disabled={loading}
+								onclick={handleRecall}
+							>
+								<RotateCcw class="size-4" />
+								Panggil Ulang
+							</Button>
+							<Button
+								variant="destructive"
+								disabled={loading}
+								onclick={handleSkipAntrian}
+							>
+								<SkipForward class="size-4" />
+								Lewati
+							</Button>
+						</div>
+					{/if}
 				</div>
 			</Card>
 		</div>
