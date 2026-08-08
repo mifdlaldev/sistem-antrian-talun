@@ -34,3 +34,7 @@ env
 # Cloudflare local state
 .wrangler/
 worker-configuration.d.ts
+
+# Material posting freelance/sosmed — JANGAN commit
+FIVERR-UPWORK-PREP.md
+LINKEDIN-PREP.md
