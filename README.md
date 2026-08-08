@@ -6,6 +6,7 @@
 
 <p align="center">
   <a href="https://github.com/mifdlaldev/sistem-antrian-talun/blob/main/LICENSE"><img src="https://img.shields.io/github/license/mifdlaldev/sistem-antrian-talun" alt="License" /></a>
+  <a href="https://github.com/mifdlaldev/sistem-antrian-talun/actions"><img src="https://github.com/mifdlaldev/sistem-antrian-talun/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
   <img src="https://img.shields.io/badge/Svelte-5-FF3E00" alt="Svelte 5" />
   <img src="https://img.shields.io/badge/Cloudflare-Workers-F38020" alt="Cloudflare Workers" />
   <img src="https://img.shields.io/badge/Database-D1-F38020" alt="Cloudflare D1" />
@@ -175,10 +176,13 @@ npm run deploy
 ## Kualitas
 
 ```bash
-npm run check   # svelte-check (0 error/0 warning) + tsc (app + worker)
-npm test        # unit test (Vitest)
-npm run lint    # biome check
+npm run check       # wrangler types + svelte-check (0 error/0 warning) + tsc (app + worker)
+npm test            # unit test + integrasi route worker (15 test)
+npm run lint        # biome check
 ```
+
+CI (GitHub Actions) menjalankan lint, check, test, build, dan
+`wrangler deploy --dry-run` pada setiap push/PR — lihat badge di atas.
 
 Bundle produksi: ~277 KB min / ~84 KB gzip (tanpa React, tanpa recharts, tanpa
 SweetAlert).

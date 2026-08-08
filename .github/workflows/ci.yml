@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Lint, Check, Test & Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate worker types
+        run: npx wrangler types
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type-check (svelte + app + worker)
+        run: npm run check
+
+      - name: Unit & integration tests
+        run: npm test
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Validate Worker bundling (dry-run)
+        run: npx wrangler deploy --dry-run --outdir .wrangler/dist-check

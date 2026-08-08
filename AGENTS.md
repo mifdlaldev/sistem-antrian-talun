@@ -18,8 +18,10 @@ here conflicts with code you read, the code wins — update this file, never the
    authoritative schema.
 
 3. **Never invent configuration files, CI workflows, or deployment settings.**
-   This project has **Vitest tests** (`src/lib/*.test.ts`, `worker/src/*.test.ts`) but
-   **no CI configuration.** Deployment uses `wrangler.jsonc` + `wrangler deploy`.
+   This project has **GitHub Actions CI** (`.github/workflows/ci.yml`: lint, check,
+   test, build, `wrangler deploy --dry-run`), **Vitest tests**
+   (`src/lib/*.test.ts`, `worker/src/*.test.ts`, `worker/src/**/*.route.test.ts`) and
+   **D1 migrations** (`worker/migrations/`). Read the files — do not claim otherwise.
 
 4. **Never "fix" or "improve" security issues silently.** Flag them to the user and get
    explicit approval first.
@@ -54,7 +56,6 @@ exam) project for SMKN 1 Sumedang, 2026.
   (realtime hub). All database access is server-side — the browser never talks to the DB.
 - **Deployment:** `wrangler deploy` — static assets (dist/) + API in one Worker.
 - **Live URL:** `https://website-antrian-kelurahan-talun.mifdlaltsaqibalf25.workers.dev`
-  (URL lama Vercel: `website-antrian-kelurahan-talun.vercel.app`).
 
 ---
 
@@ -93,7 +94,8 @@ npm run dev          # start Vite dev server (frontend only)
 npm run dev:worker   # wrangler dev --local (Worker + D1 + DO + assets)
 npm run build        # production build frontend (output: dist/)
 npm run check        # svelte-check + tsc (node config) + tsc (worker config)
-npm test             # run Vitest (unit tests)
+npm test             # Vitest unit + integrasi worker
+npm run test:worker  # hanya integrasi worker (vitest pool Workers)
 npm run lint         # biome check
 npm run lint:fix     # biome check --write
 npm run format       # biome format --write
@@ -119,9 +121,13 @@ Pre-commit hook: `lint-staged` runs `biome check --write` on staged files.
 ├── tsconfig.worker.json       # Worker TS (@cloudflare/workers-types)
 ├── biome.json                 # Lint/format (excludes *.svelte + *.css)
 ├── components.json            # shadcn-svelte config
+├── vitest.worker.config.ts    # Vitest pool Workers (integration route tests)
 ├── wrangler.jsonc             # Cloudflare Worker config (D1 + DO + assets)
-├── .dev.vars                  # Secret lokal (gitignored) — SESSION_SECRET
+├── .dev.vars                  # Secret lokal (gitignored) — SESSION_SECRET, TURNSTILE_SECRET
+├── .github/workflows/ci.yml   # CI: lint, check, test, build, wrangler deploy --dry-run
 ├── LICENSE                    # Apache License 2.0
+├── SECURITY.md                # Kebijakan keamanan & pelaporan kerentanan
+├── CONTRIBUTING.md            # Panduan kontribusi
 ├── AGENTS.md                  # This file — agent guidelines (no hallucination)
 ├── README.md                  # Project documentation (Indonesian)
 ├── docs/
@@ -358,9 +364,9 @@ Seed (`0002_seed.sql`): `admin`/`admin123` (role admin), `petugas1`/`petugas123`
 
 | Area | Status |
 |---|---|
-| Tests | **Vitest**: queue + schemas (`src/lib/*.test.ts`, `worker/src/queue.test.ts`). No component tests. |
-| CI | **None.** No GitHub Actions / workflows. |
-| Deploy | Belum di-deploy ke Cloudflare (butuh akun + `wrangler login` + set secret + migrate remote). |
+| Tests | **Vitest**: 4 unit (`src/lib/*.test.ts`, `worker/src/queue.test.ts`) + 11 integrasi route (`worker/src/routes/antrian.route.test.ts`, via `@cloudflare/vitest-pool-workers`). No component tests. |
+| CI | **GitHub Actions** (`.github/workflows/ci.yml`) — lint, check, test, build, `wrangler deploy --dry-run` pada push/PR. |
+| Deploy | Sudah di-deploy ke Cloudflare Workers (live: workers.dev). |
 | Realtime | DO WebSocket — teruji lokal (`wrangler dev`), belum teruji di edge. |
 | Seed credentials | `admin`/`admin123`, `petugas1`/`petugas123` — WAJIB diganti sebelum produksi. |
 | Queue-number uniqueness | **Aman** — insert atomik single-statement (perbaikan dari Supabase). |
