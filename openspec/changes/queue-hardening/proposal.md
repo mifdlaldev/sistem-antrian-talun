@@ -12,16 +12,18 @@ status: in-progress
 |---|---|
 | P1 (INSERT...RETURNING) | ✅ Diimplementasikan |
 | P2/P3 (klaim atomik + batch) | ✅ Diimplementasikan |
+| P4 (Turnstile anti-bot) | ✅ Diimplementasikan (widget managed, action `ambil_antrian`, siteverify fail-closed) |
 | P5 (cooldown IP 60s + client) | ✅ Diimplementasikan |
+| P6 (kuota 999 → 409 "penuh") | ✅ Diimplementasikan |
 | P7 (totalMenunggu) | ✅ Diimplementasikan |
 | P8 (GET /api/antrian/last) | ✅ Diimplementasikan |
 | P9 (refetch on reconnect) | ✅ Diimplementasikan |
+| P10 (login throttle 5 gagal/15 menit + jitter) | ✅ Diimplementasikan |
+| P11 (ganti seed password acak) | ✅ Diimplementasikan |
 | P12 (zona WIB) | ✅ Diimplementasikan |
-| P13 (skip/batal/recall) | ✅ Diimplementasikan (status `batal` + `/skip` + `/recall`) |
-| P14 (jejak audit) | ✅ Diimplementasikan (`waktu_panggil`, `waktu_batal`) |
-| P4 (Turnstile anti-bot) | ✅ Diimplementasikan (widget managed, action `ambil_antrian`, siteverify fail-closed) |
-| P10 (login rate limit) | ⏳ Belum (WAF dashboard / Turnstile login menyusul) |
-| P6, P11, P15 | ⏳ Belum (prioritas rendah) |
+| P13 (skip/batal/recall) | ✅ Diimplementasikan |
+| P14 (jejak audit) | ✅ Diimplementasikan |
+| P15 (cron cleanup 90 hari) | ✅ Diimplementasikan |
 
 ## Context
 

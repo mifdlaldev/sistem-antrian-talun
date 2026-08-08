@@ -217,6 +217,9 @@ perubahan path. Role tidak cocok → redirect ke dashboard sendiri.
 | GET | `/api/stats/dashboard` | admin | stats + weekly + layananStats |
 | GET | `/api/realtime` | public | WebSocket upgrade → Durable Object hub |
 
+Selain itu: `POST /api/antrian` punya **kuota 999/hari/layanan** (409 "penuh") dan
+cron harian 03:00 UTC membersihkan antrian `selesai/batal` > 90 hari.
+
 Semua route non-API → static assets (SPA fallback).
 
 ---
@@ -295,8 +298,11 @@ Seed (`0002_seed.sql`): `admin`/`admin123` (role admin), `petugas1`/`petugas123`
 
 ### Login (`POST /api/auth/login`)
 - Query `users` by username → `verifyPassword` (PBKDF2, constant-time compare).
+- **Throttle brute-force (P10)**: ≥5 gagal per IP dalam 15 menit → 429
+  (`login_attempts`), + jitter 500ms pada gagal. Sukses → hapus catatan IP.
 - Sukses → cookie `session` httpOnly, SameSite=Lax, Secure (prod), 12 jam,
   berisi `{ id_user, role, exp }` yang di-HMAC-SHA256 dengan `SESSION_SECRET`.
+- Password seed sudah diganti (P11) — lihat README/catatan admin untuk kredensial baru.
 
 ### Auth guard (`App.svelte`)
 - Fetch `GET /api/auth/me` per path change; cookie dikirim otomatis.

@@ -187,7 +187,18 @@ antrianRoutes.post("/", async (c) => {
 		.bind(today, ip, now, today, body.output.id_layanan)
 		.first<{ nomor_antrian: string }>();
 
-	if (!inserted) return c.json({ error: "Gagal membuat antrian" }, 500);
+	if (!inserted) {
+		const { results } = await c.env.DB.prepare(
+			"SELECT COUNT(*) AS cnt FROM antrian WHERE id_layanan = ? AND tanggal = ?",
+		)
+			.bind(body.output.id_layanan, today)
+			.all<{ cnt: number }>();
+		const sudah = results[0]?.cnt ?? 0;
+		if (sudah >= 999) {
+			return c.json({ error: "Kuota layanan hari ini telah penuh." }, 409);
+		}
+		return c.json({ error: "Gagal membuat antrian" }, 500);
+	}
 
 	await broadcast(c.env);
 	return c.json(

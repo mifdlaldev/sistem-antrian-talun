@@ -139,8 +139,8 @@ npm run dev:worker
 # Buka http://localhost:8787
 ```
 
-Akun default hasil seed: `admin` / `admin123` (admin) dan `petugas1` / `petugas123`
-(petugas). **Ganti segera sebelum digunakan secara publik.**
+Akun default hasil seed sudah **diganti** (migration `0005_security.sql`) — kredensial
+baru diserahkan ke admin melalui saluran aman. Jangan gunakan `admin123`/`petugas123`.
 
 ## Deployment
 

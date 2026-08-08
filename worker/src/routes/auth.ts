@@ -24,12 +24,52 @@ interface UserRow {
 	id_layanan: number | null;
 }
 
+const MAX_FAILED_LOGIN = 5;
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+
 export const authRoutes = new Hono<{
 	Bindings: Env;
 	Variables: SessionVariables;
 }>();
 
+async function catatPercobaanGagal(c: {
+	env: Env;
+	req: { header: (n: string) => string | undefined };
+}) {
+	const ip = c.req.header("CF-Connecting-IP");
+	if (!ip) return;
+	const now = Date.now();
+	await c.env.DB.prepare(
+		`INSERT INTO login_attempts (ip, failed_count, last_fail) VALUES (?, 1, ?)
+		 ON CONFLICT(ip) DO UPDATE SET
+			failed_count = CASE WHEN ? - last_fail < ${LOGIN_WINDOW_MS} THEN failed_count + 1 ELSE 1 END,
+			last_fail = ?`,
+	)
+		.bind(ip, now, now, now)
+		.run();
+}
+
 authRoutes.post("/login", async (c) => {
+	const ip = c.req.header("CF-Connecting-IP");
+
+	if (ip) {
+		const attempt = await c.env.DB.prepare(
+			"SELECT failed_count, last_fail FROM login_attempts WHERE ip = ?",
+		)
+			.bind(ip)
+			.first<{ failed_count: number; last_fail: number }>();
+		if (
+			attempt &&
+			attempt.failed_count >= MAX_FAILED_LOGIN &&
+			Date.now() - attempt.last_fail < LOGIN_WINDOW_MS
+		) {
+			return c.json(
+				{ error: "Terlalu banyak percobaan. Coba lagi dalam beberapa menit." },
+				429,
+			);
+		}
+	}
+
 	const body = v.safeParse(
 		LoginBodySchema,
 		await c.req.json().catch(() => null),
@@ -44,7 +84,15 @@ authRoutes.post("/login", async (c) => {
 		!user ||
 		!(await verifyPassword(body.output.password, user.password_hash))
 	) {
+		await catatPercobaanGagal(c);
+		await new Promise((r) => setTimeout(r, 500));
 		return c.json({ error: "Username atau Password salah!" }, 401);
+	}
+
+	if (ip) {
+		await c.env.DB.prepare("DELETE FROM login_attempts WHERE ip = ?")
+			.bind(ip)
+			.run();
 	}
 
 	const payload = {
