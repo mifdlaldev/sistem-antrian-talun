@@ -5,7 +5,7 @@
 <h1 align="center">Sistem Antrian Digital Kelurahan Talun</h1>
 
 <p align="center">
-  <a href="https://github.com/mifdlaldev/website-antrian-kelurahan-talun/blob/main/LICENSE"><img src="https://img.shields.io/github/license/mifdlaldev/website-antrian-kelurahan-talun" alt="License" /></a>
+  <a href="https://github.com/mifdlaldev/sistem-antrian-talun/blob/main/LICENSE"><img src="https://img.shields.io/github/license/mifdlaldev/sistem-antrian-talun" alt="License" /></a>
   <img src="https://img.shields.io/badge/Svelte-5-FF3E00" alt="Svelte 5" />
   <img src="https://img.shields.io/badge/Cloudflare-Workers-F38020" alt="Cloudflare Workers" />
   <img src="https://img.shields.io/badge/Database-D1-F38020" alt="Cloudflare D1" />
@@ -15,6 +15,16 @@
 <p align="center">
   <em>Aplikasi pengambilan nomor antrian digital untuk pelayanan publik di <strong>Kantor Kelurahan Talun, Kecamatan Sumedang Utara, Kabupaten Sumedang, Jawa Barat</strong>.</em>
 </p>
+
+## Tampilan (Screenshot)
+
+| Kiosk Antrian | Monitor Display |
+|---|---|
+| ![Kiosk](docs/screenshots/01-kiosk.png) | ![Monitor](docs/screenshots/02-monitor.png) |
+
+| Login | Dashboard Admin | Dashboard Petugas |
+|---|---|---|
+| ![Login](docs/screenshots/03-login.png) | ![Admin](docs/screenshots/04-admin-dashboard.png) | ![Petugas](docs/screenshots/05-petugas-dashboard.png) |
 
 ## Tentang
 
@@ -105,7 +115,8 @@ sisi server.
 │   │   └── routes/           # auth, layanan, antrian, users, stats
 │   └── migrations/           # Skema SQL D1 (0001_init, 0002_seed)
 ├── docs/
-│   └── API.md                # Dokumentasi endpoint API
+│   ├── API.md                # Dokumentasi endpoint API
+│   └── screenshots/          # Tangkapan layar aplikasi
 ├── openspec/                 # Spesifikasi sistem (capabilities + contracts)
 └── wrangler.jsonc            # Konfigurasi Worker (D1 + DO + static assets)
 ```
@@ -122,8 +133,8 @@ Dokumentasi lengkap endpoint API: [docs/API.md](docs/API.md).
 
 ```bash
 # 1. Clone repositori
-git clone https://github.com/mifdlaldev/website-antrian-kelurahan-talun.git
-cd website-antrian-kelurahan-talun
+git clone https://github.com/mifdlaldev/sistem-antrian-talun.git
+cd sistem-antrian-talun
 
 # 2. Install dependensi
 npm install

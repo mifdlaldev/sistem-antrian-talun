@@ -124,6 +124,9 @@ Pre-commit hook: `lint-staged` runs `biome check --write` on staged files.
 ├── LICENSE                    # Apache License 2.0
 ├── AGENTS.md                  # This file — agent guidelines (no hallucination)
 ├── README.md                  # Project documentation (Indonesian)
+├── docs/
+│   ├── API.md                 # API endpoint documentation
+│   └── screenshots/           # App screenshots (used in README)
 ├── openspec/                  # OpenSpec specs — authoritative description of current behavior
 │   ├── project.md             # Project overview, scope, constraints, conventions
 │   └── spec/
