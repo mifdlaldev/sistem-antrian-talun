@@ -39,8 +39,9 @@ Arsitektur dirancang ringan dan aman: SPA Svelte 5 + API Hono yang berjalan dala
 (SQLite) dan real-time via **Durable Objects**. Semua akses database hanya terjadi di
 sisi server.
 
-> **Status**: Berjalan di Cloudflare Workers. URL live:
-> [website-antrian-kelurahan-talun.mifdlaltsaqibalf25.workers.dev](https://website-antrian-kelurahan-talun.mifdlaltsaqibalf25.workers.dev)
+> **Status**: Aplikasi **internal** — digunakan terbatas di lingkungan Kantor Kelurahan
+> Talun (kiosk kantor + monitor ruang tunggu). Tidak di-deploy secara publik/global.
+> Deploy dikelola oleh admin via `npm run deploy`.
 
 ## Fitur
 

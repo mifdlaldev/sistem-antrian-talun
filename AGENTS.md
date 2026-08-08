@@ -55,7 +55,8 @@ exam) project for SMKN 1 Sumedang, 2026.
 - **Backend:** Cloudflare Workers (Hono) + **D1** (SQLite) + **Durable Objects**
   (realtime hub). All database access is server-side — the browser never talks to the DB.
 - **Deployment:** `wrangler deploy` — static assets (dist/) + API in one Worker.
-- **Live URL:** `https://website-antrian-kelurahan-talun.mifdlaltsaqibalf25.workers.dev`
+  Aplikasi bersifat **internal** (lingkungan kantor Kelurahan Talun); tidak ada
+  deployment publik.
 
 ---
 
@@ -366,7 +367,7 @@ Seed (`0002_seed.sql`): `admin`/`admin123` (role admin), `petugas1`/`petugas123`
 |---|---|
 | Tests | **Vitest**: 4 unit (`src/lib/*.test.ts`, `worker/src/queue.test.ts`) + 11 integrasi route (`worker/src/routes/antrian.route.test.ts`, via `@cloudflare/vitest-pool-workers`). No component tests. |
 | CI | **GitHub Actions** (`.github/workflows/ci.yml`) — lint, check, test, build, `wrangler deploy --dry-run` pada push/PR. |
-| Deploy | Sudah di-deploy ke Cloudflare Workers (live: workers.dev). |
+| Deploy | Internal (lingkungan kantor); deployment publik dihapus. Kode siap redeploy via `npm run deploy`. |
 | Realtime | DO WebSocket — teruji lokal (`wrangler dev`), belum teruji di edge. |
 | Seed credentials | `admin`/`admin123`, `petugas1`/`petugas123` — WAJIB diganti sebelum produksi. |
 | Queue-number uniqueness | **Aman** — insert atomik single-statement (perbaikan dari Supabase). |
